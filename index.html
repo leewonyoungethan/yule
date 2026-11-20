@@ -268,6 +268,26 @@ h2 { font-family: var(--f-display); font-weight: 400; font-size: 1.15rem; margin
 .choice { border-radius: 22px; }
 .who b { color: var(--ink); }
 .timebar .track { height: 10px; }
+
+/* 순위 */
+.myscore { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 4px 12px; align-items: center; background: var(--surface-2); border-radius: 22px; padding: 12px 14px; margin: 8px 0 12px; }
+.myscore .big { grid-row: span 2; font-family: var(--f-display); font-size: 2.2rem; color: var(--accent); line-height: 1; font-variant-numeric: tabular-nums; }
+.myscore small { color: var(--muted); font-size: .8rem; }
+.nickrow { display: flex; gap: 8px; margin-bottom: 8px; }
+.nickrow input { flex: 1; min-width: 0; border: 2px solid var(--line); border-radius: 999px; padding: 9px 14px; font: inherit; background: var(--surface); color: var(--ink); }
+.nickrow button { border: none; border-radius: 999px; padding: 9px 16px; background: var(--accent); color: #fff; font-family: var(--f-display); font-size: 1rem; cursor: pointer; white-space: nowrap; }
+.rtabs { display: flex; gap: 4px; background: var(--surface-2); border-radius: 999px; padding: 3px; margin: 6px 0 10px; }
+.rtabs button { flex: 1; border: none; background: none; border-radius: 999px; padding: 7px 8px; font-family: var(--f-display); font-size: .95rem; color: var(--muted); cursor: pointer; }
+.rtabs button.on { background: var(--accent); color: #fff; }
+.ranks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.ranks li { display: grid; grid-template-columns: 2.2em minmax(0,1fr) auto; gap: 8px; align-items: center; background: var(--surface-2); border-radius: 18px; padding: 8px 12px; }
+.ranks li.me { box-shadow: inset 0 0 0 2px var(--accent); }
+.ranks .no { font-family: var(--f-display); font-size: 1.2rem; text-align: center; }
+.ranks .who { min-width: 0; }
+.ranks .who b { font-family: var(--f-display); font-weight: 400; font-size: 1.02rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranks .who small { color: var(--muted); font-size: .76rem; }
+.ranks .pt { font-family: var(--f-display); font-size: 1.15rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+.rnote { font-size: .82rem; color: var(--muted); margin: 8px 2px 0; }
 </style>
 </head>
 <body>
@@ -278,6 +298,7 @@ h2 { font-family: var(--f-display); font-weight: 400; font-size: 1.15rem; margin
     <div class="right">
       <span class="chip" id="yearChip">2026년</span>
       <span class="chip" id="cmChip">키 <b>50</b>cm</span>
+      <button class="iconbtn" id="rankBtn" type="button" aria-label="순위">🏆</button>
       <button class="iconbtn" id="settingsBtn" type="button" aria-label="설정">⚙️</button>
     </div>
   </header>
@@ -1182,6 +1203,7 @@ function birthdayModal(age, prevStage) {
   };
 }
 function endingModal() {
+  saveLocalRank();
   const avg = S.happyN ? S.happySum / S.happyN : 0;
   const stars = clamp(Math.round(avg / 20), 1, 5);
   const maxSkill = Math.max(30, ...SKILL_KEYS.map(k => S[k]));
@@ -1204,6 +1226,7 @@ function endingModal() {
       <p style="font-size:.85rem;color:var(--muted)">문틀 키 기록(cm): ${marks}</p>
       <p>"참 좋은 백 년이었어요. 키워줘서 고마워요." — 나율</p>`,
     choices: [
+      { label: '🏆 순위표 보기', run: () => { saveLocalRank(); setTimeout(() => rankModal(), 80); } },
       { label: '앨범 덮고 방 구경하기', run: () => {} },
       { label: '아기 나율이부터 다시 키우기', primary: true, run: () => { const sp = S.speed; S = freshState(); S.speed = sp; actKey = ''; diaryVer++; queue(startModal()); } },
     ],
@@ -1710,6 +1733,111 @@ function tick() {
   if (!modalOpen) showNext();
 }
 
+/* ================= 순위 ================= */
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const RANK_KEY = 'nayul-ranks-v1';
+const RANK = { db: null, uid: null, rows: null, state: 'off', tab: null, unsub: null };
+function lifeScore() {
+  const skills = SKILL_KEYS.reduce((a, k) => a + S[k], 0);
+  const avgHappy = S.happyN ? S.happySum / S.happyN : S.happy;
+  const fam = (S.married ? 20 : 0) + (S.kids ? 30 : 0) + (S.grandkids ? 30 : 0) + (S.greatgrand ? 30 : 0);
+  const pets = (S.petsHad || []).length * 15;
+  return Math.round(skills * 3 + avgHappy * 2 + Math.min(S.age, 100) * 2 + fam + pets + (S.job ? 20 : 0));
+}
+function scoreParts() {
+  const avgHappy = S.happyN ? S.happySum / S.happyN : S.happy;
+  return `재능 ${Math.round(SKILL_KEYS.reduce((a, k) => a + S[k], 0) * 3)} · 행복 ${Math.round(avgHappy * 2)} · 나이 ${Math.round(Math.min(S.age, 100) * 2)}`;
+}
+function loadLocalRanks() { try { const r = JSON.parse(localStorage.getItem(RANK_KEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; } }
+function saveLocalRank() {
+  const list = loadLocalRanks();
+  const row = { life: S.bornAt, nick: (S.nick || '나율이 보호자').slice(0, 12), score: lifeScore(), age: ageOf(), job: S.job || '', pet: S.pet ? S.pet.kind : ((S.petsHad || []).slice(-1)[0] || {}).kind || '', at: Date.now() };
+  const i = list.findIndex(r => r.life === row.life);
+  if (i >= 0) { if (row.score >= list[i].score) list[i] = row; } else list.push(row);
+  list.sort((a, b) => b.score - a.score);
+  try { localStorage.setItem(RANK_KEY, JSON.stringify(list.slice(0, 30))); } catch (e) {}
+  return row;
+}
+async function initSharedRank() {
+  try {
+    if (!window.claude || typeof window.claude.use !== 'function') return;
+    RANK.state = 'loading';
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (!db || !user) { RANK.state = 'off'; return; }
+    const uid = await user.id();
+    if (!uid) { RANK.state = 'off'; return; }
+    RANK.db = db; RANK.uid = uid;
+    const timer = setTimeout(() => { if (RANK.state === 'loading') { RANK.state = 'slow'; refreshRankList(); } }, 10000);
+    RANK.unsub = db.collection('ranks').orderBy('score', 'desc').limit(50).onSnapshot(snap => {
+      if (!snap.metadata || !snap.metadata.fromCache) clearTimeout(timer);
+      RANK.rows = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      RANK.state = 'live';
+      refreshRankList();
+    }, () => { clearTimeout(timer); RANK.state = 'error'; refreshRankList(); });
+  } catch (e) { RANK.state = 'off'; }
+}
+async function submitShared(row) {
+  if (!RANK.db || !RANK.uid) return 'off';
+  try {
+    const ref = RANK.db.collection('ranks').doc(RANK.uid);
+    const cur = await ref.get();
+    const old = cur.exists ? cur.data() : null;
+    if (old && typeof old.score === 'number' && old.score > row.score && old.nick === row.nick) return 'kept';
+    await ref.set({ nick: row.nick, score: row.score, age: row.age, job: row.job, pet: row.pet, at: row.at });
+    return 'ok';
+  } catch (e) { return 'denied'; }
+}
+function rowHTML(r, i, me) {
+  const medal = ['🥇', '🥈', '🥉'][i] || (i + 1);
+  const pet = r.pet && PETS[r.pet] ? ' ' + PETS[r.pet].ic : '';
+  return `<li class="${me ? 'me' : ''}"><span class="no">${medal}</span><span class="who"><b>${esc(r.nick || '이름 없음')}${me ? ' (나)' : ''}</b><small>${esc(r.age)}살${r.job ? ' · ' + esc(r.job) : ''}${pet}</small></span><span class="pt">${Number(r.score) || 0}점</span></li>`;
+}
+function refreshRankList() {
+  const box = document.getElementById('rankList'); if (!box) return;
+  const shared = RANK.tab === 'shared';
+  let rows, note = '';
+  if (shared) {
+    rows = RANK.rows || [];
+    if (RANK.state === 'loading') note = '순위를 불러오는 중이에요…';
+    else if (RANK.state === 'slow') note = '순위를 아직 불러오지 못했어요. 인터넷 연결을 확인해 주세요.';
+    else if (RANK.state === 'error') note = '순위를 불러오지 못했어요. 잠시 뒤에 다시 열어주세요.';
+    else if (!rows.length) note = '아직 아무도 점수를 올리지 않았어요. 첫 번째로 올려보세요!';
+  } else {
+    rows = loadLocalRanks();
+    if (!rows.length) note = '아직 기록이 없어요. 위에서 "점수 올리기"를 눌러보세요.';
+  }
+  box.innerHTML = rows.map((r, i) => rowHTML(r, i, shared ? r.id === RANK.uid : r.life === S.bornAt)).join('');
+  const n = document.getElementById('rankNote'); if (n) n.textContent = note;
+}
+function rankModal() {
+  const sharedOK = !!RANK.db;
+  if (!RANK.tab) RANK.tab = sharedOK ? 'shared' : 'local';
+  if (!sharedOK) RANK.tab = 'local';
+  const sc = lifeScore();
+  setModal(`<div class="tag">🏆 순위</div><h3>나율이 인생 점수</h3>
+    <div class="myscore"><span class="big">${sc}</span><b style="font-family:var(--f-display);font-weight:400">지금 ${ageLabel()} 나율이</b><small>${scoreParts()} · 가족과 반려동물 보너스</small></div>
+    <div class="nickrow"><input id="nickIn" maxlength="12" placeholder="내 이름 (순위에 보여요)" value="${esc(S.nick || '')}" aria-label="순위에 보일 이름"><button type="button" id="submitRank">점수 올리기</button></div>
+    ${sharedOK ? `<div class="rtabs" role="tablist"><button type="button" data-rt="shared" class="${RANK.tab === 'shared' ? 'on' : ''}">모두의 순위</button><button type="button" data-rt="local" class="${RANK.tab === 'local' ? 'on' : ''}">이 기기 기록</button></div>` : ''}
+    <ol class="ranks" id="rankList"></ol><p class="rnote" id="rankNote"></p>
+    ${sharedOK ? '' : '<p class="rnote">이 페이지에서는 이 기기에서 키운 기록만 순위로 보여요. 같은 Claude 링크로 하면 친구들과 순위를 함께 볼 수 있어요.</p>'}
+    <div class="choices"><button class="choice primary" type="button" id="rankClose">닫기</button></div>`);
+  refreshRankList();
+  $('modal').querySelectorAll('[data-rt]').forEach(b => b.onclick = () => { RANK.tab = b.dataset.rt; $('modal').querySelectorAll('[data-rt]').forEach(x => x.classList.toggle('on', x === b)); refreshRankList(); });
+  $('rankClose').onclick = closeModal;
+  $('submitRank').onclick = async () => {
+    const nick = $('nickIn').value.trim().slice(0, 12);
+    const n = $('rankNote');
+    if (!nick) { n.textContent = '순위에 보일 이름을 먼저 적어주세요.'; $('nickIn').focus(); return; }
+    S.nick = nick; save();
+    const btn = $('submitRank'); btn.disabled = true; btn.textContent = '올리는 중…';
+    const row = saveLocalRank();
+    const r = await submitShared(row);
+    btn.disabled = false; btn.textContent = '점수 올리기';
+    refreshRankList();
+    if (document.getElementById('rankNote')) $('rankNote').textContent = r === 'ok' ? `${row.score}점을 올렸어요!` : r === 'kept' ? `전에 올린 점수가 더 높아서 그대로 뒀어요.` : r === 'denied' ? '이 링크에서는 점수를 올릴 권한이 없어서 이 기기에만 저장했어요.' : `${row.score}점을 이 기기 기록에 저장했어요.`;
+  };
+}
+
 /* ================= 할 일 하기 ================= */
 function doAction(id) {
   if (modalOpen) return;
@@ -1791,6 +1919,8 @@ function start(data) {
   $('pet').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); petPet(); } });
   $('kid').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pet(); } });
   $('settingsBtn').addEventListener('click', () => { if (!modalOpen) settingsModal(); });
+  $('rankBtn').addEventListener('click', () => { if (!modalOpen) rankModal(); });
+  initSharedRank();
   window.addEventListener('resize', () => render(true));
   if (!S.started) queue(startModal());
   else if (S.done) queue(endingModal());
