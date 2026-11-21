@@ -288,6 +288,26 @@ h2 { font-family: var(--f-display); font-weight: 400; font-size: 1.15rem; margin
 .ranks .who small { color: var(--muted); font-size: .76rem; }
 .ranks .pt { font-family: var(--f-display); font-size: 1.15rem; color: var(--accent); font-variant-numeric: tabular-nums; }
 .rnote { font-size: .82rem; color: var(--muted); margin: 8px 2px 0; }
+
+/* 친구 */
+.iconbtn { position: relative; }
+.fcount { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; border-radius: 999px; background: #59b88f; color: #fff; font-family: var(--f-display); font-size: .72rem; display: grid; place-items: center; padding: 0 4px; }
+.visitor { position: absolute; z-index: 2; transform: translateX(-50%); cursor: pointer; transition: left .8s ease; }
+.visitor svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.visitor .vtag { position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -4px); background: #59b88f; color: #fff; font-family: var(--f-display); font-size: .78rem; padding: 1px 9px; border-radius: 999px; white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 0 rgba(0,0,0,.12); }
+.visitor .vsay { position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -28px); background: #fffbf0; color: #5c4733; border: 2px solid #eadfc6; font-family: var(--f-display); font-size: .85rem; padding: 2px 10px; border-radius: 14px; white-space: nowrap; animation: pop .25s ease; }
+.flist { display: grid; gap: 8px; margin: 10px 0; }
+.fitem { background: var(--surface-2); border-radius: 22px; padding: 10px 12px; }
+.fitem .fhead { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.fitem .fhead b { font-family: var(--f-display); font-weight: 400; font-size: 1.1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fitem .fhead small { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+.fbtns { display: flex; flex-wrap: wrap; gap: 6px; }
+.fbtns button { border: 2px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 11px; font-family: var(--f-display); font-size: .92rem; cursor: pointer; color: var(--ink); }
+.fbtns button:hover { border-color: var(--accent); }
+.fbtns button:disabled { opacity: .45; cursor: default; }
+.fempty { text-align: center; color: var(--muted); padding: 14px 6px; font-size: .92rem; }
+
+@media (max-width: 460px) { #yearChip { display: none; } .iconbtn { width: 34px; height: 34px; font-size: 1rem; } .hud .right { gap: 4px; flex-wrap: nowrap; } .who b { font-size: 1.7rem; white-space: nowrap; } .who .brand { white-space: nowrap; } .chip { padding: 4px 9px; } }
 </style>
 </head>
 <body>
@@ -298,6 +318,7 @@ h2 { font-family: var(--f-display); font-weight: 400; font-size: 1.15rem; margin
     <div class="right">
       <span class="chip" id="yearChip">2026년</span>
       <span class="chip" id="cmChip">키 <b>50</b>cm</span>
+      <button class="iconbtn" id="friendBtn" type="button" aria-label="친구">👫<span class="fcount" id="fcount" hidden>0</span></button>
       <button class="iconbtn" id="rankBtn" type="button" aria-label="순위">🏆</button>
       <button class="iconbtn" id="settingsBtn" type="button" aria-label="설정">⚙️</button>
     </div>
@@ -313,6 +334,7 @@ h2 { font-family: var(--f-display); font-weight: 400; font-size: 1.15rem; margin
     <div class="badge" id="stageLabel">아기</div>
     <div class="petchip" id="petChip" hidden></div>
     <div class="world" id="worldBox" hidden></div>
+    <div id="visitors"></div>
     <div class="floats" id="floats"></div>
   </section>
   <div class="talk" aria-live="polite"><span class="name" id="talkName">나율</span><p id="bubble">응애~</p><span class="more" aria-hidden="true">▼</span></div>
@@ -1127,7 +1149,7 @@ function renderPanel() {
       : '<li><time>—</time><span>나율이를 돌봐주면 여기에 하루하루가 기록돼요.</span></li>';
   }
 }
-function render(force) { renderStage(force); renderPanel(); }
+function render(force) { renderStage(force); renderPanel(); if (typeof renderVisitors === 'function') { renderVisitors(force); pushPresence(); } }
 function diaryModal() {
   setModal(`<div class="tag">${S.diary.length}개의 기록</div><h3>나율이의 일기</h3><ol class="diary fulldiary">${S.diary.map(d => `<li class="${d.big ? 'big' : ''}"><time>${d.when}</time><span>${d.text}</span></li>`).join('')}</ol><div class="choices"><button class="choice primary" type="button" id="dClose">닫기</button></div>`);
   $('dClose').onclick = closeModal; $('dClose').focus();
@@ -1733,6 +1755,139 @@ function tick() {
   if (!modalOpen) showNext();
 }
 
+/* ================= 친구 ================= */
+const FR = { room: null, peers: [], me: null, state: 'off', lastKey: '', recv: {}, sent: 0, joinedSeen: {}, says: {} };
+const GIFTS = [{ k: 'apple', ic: '🍎', name: '사과', obj: '사과를', eff: { hunger: 10, happy: 6 } }, { k: 'flower', ic: '🌸', name: '꽃', obj: '꽃을', eff: { happy: 10, art: 1 } }, { k: 'toy', ic: '🧸', name: '장난감', obj: '장난감을', eff: { happy: 12 } }, { k: 'cookie', ic: '🍪', name: '쿠키', obj: '쿠키를', eff: { hunger: 12, happy: 5 } }];
+const PHRASES = ['안녕!', '같이 놀자!', '나율이 귀여워!', '생일 축하해!', '고마워!', '잘 자~'];
+const friendList = () => FR.peers.filter(p => !p.isMe && p.kind === 'viewer' && p.presence && typeof p.presence.nick === 'string');
+const NICK_BAD = new RegExp('[\\u0000-\\u001f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f]', 'g');
+const cleanNick = n => String(n || '').replace(NICK_BAD, '').trim().slice(0, 12) || '친구';
+async function initFriends() {
+  try {
+    if (!window.claude || typeof window.claude.use !== 'function') return;
+    FR.state = 'connecting';
+    const room = await window.claude.use('room');
+    if (!room) { FR.state = 'off'; return; }
+    FR.room = room; FR.state = 'on';
+    room.onPeers(ch => {
+      FR.peers = ch.peers.slice();
+      const mine = FR.peers.find(p => p.isMe && p.sameTab); if (mine) FR.me = mine.peer;
+      ch.joined.forEach(p => {
+        if (p.isMe || p.kind !== 'viewer' || FR.joinedSeen[p.peer]) return;
+        FR.joinedSeen[p.peer] = 1;
+        setTimeout(() => { const f = friendList().find(x => x.peer === p.peer); if (f) { say(`${cleanNick(f.presence.nick)} 친구가 놀러 왔어요!`, '마을 소식'); } }, 1500);
+      });
+      renderVisitors(true); renderPanel();
+    }, () => { FR.state = 'error'; });
+    room.on('wave', m => onFriendMsg(m, 'wave'));
+    room.on('gift', m => onFriendMsg(m, 'gift'));
+    room.on('chat', m => onFriendMsg(m, 'chat'));
+    FR.lastKey = ''; pushPresence();
+  } catch (e) { FR.state = 'off'; }
+}
+function pushPresence() {
+  if (!FR.room || !S.started) return;
+  const pres = { nick: cleanNick(S.nick || '나율이 보호자'), age: Math.round(S.age * 4) / 4, mood: moodOf(), pet: S.pet ? S.pet.kind : null, v: 1 };
+  const key = JSON.stringify(pres);
+  if (key === FR.lastKey) return;
+  FR.lastKey = key;
+  FR.room.presence(pres).catch(() => {});
+}
+const VPOS = [0.3, 0.88, 0.2];
+let visKey = '';
+function renderVisitors(force) {
+  const box = document.getElementById('visitors'); if (!box) return;
+  const fl = friendList().slice(0, 3);
+  const cnt = $('fcount'); cnt.hidden = !friendList().length; cnt.textContent = friendList().length;
+  const k = stageK(), W = $('stage').clientWidth, base = (400 - BASE_Y) * k;
+  const key = fl.map(p => p.peer + '|' + p.presence.age + '|' + p.presence.mood + '|' + p.presence.nick).join(';') + '|' + W;
+  if (!force && key === visKey) return;
+  visKey = key;
+  box.innerHTML = '';
+  fl.forEach((p, i) => {
+    const age = clamp(Number(p.presence.age) || 0, 0, 100);
+    const mood = ['happy', 'normal', 'sad', 'sleepy', 'sick'].includes(p.presence.mood) ? p.presence.mood : 'normal';
+    const h = (baseHeight(age) * CM_U * k) * 0.82;
+    const el = document.createElement('div'); el.className = 'visitor'; el.dataset.peer = p.peer;
+    el.style.height = h + 'px'; el.style.width = (h * 0.7) + 'px'; el.style.left = (W * VPOS[i]) + 'px'; el.style.bottom = (base + 14 * k) + 'px';
+    el.setAttribute('role', 'button'); el.tabIndex = 0; el.setAttribute('aria-label', cleanNick(p.presence.nick) + ' 친구');
+    el.innerHTML = nayulSVG(age, mood);
+    const tag = document.createElement('span'); tag.className = 'vtag'; tag.textContent = cleanNick(p.presence.nick); el.appendChild(tag);
+    const sayTxt = FR.says[p.peer];
+    if (sayTxt && sayTxt.until > Date.now()) { const b = document.createElement('span'); b.className = 'vsay'; b.textContent = sayTxt.text; el.appendChild(b); }
+    el.onclick = () => { if (!modalOpen) friendsModal(p.peer); };
+    box.appendChild(el);
+  });
+}
+function canSend() { const now = Date.now(); if (now - FR.sent < 1500) return false; FR.sent = now; return true; }
+async function sendFriend(topic, to, extra) {
+  if (!FR.room || !canSend()) return false;
+  const data = Object.assign({ to, nick: cleanNick(S.nick || '나율이 보호자') }, extra || {});
+  try { await FR.room.emit(topic, data); return true; } catch (e) { return false; }
+}
+function onFriendMsg(m, topic) {
+  if (m.sameTab || m.kind !== 'viewer') return;
+  const d = m.data && typeof m.data === 'object' ? m.data : {};
+  const nick = cleanNick(d.nick);
+  if (topic === 'chat') {
+    const text = PHRASES[d.i | 0]; if (!text) return;
+    FR.says[m.peer] = { text, until: Date.now() + 4000 };
+    renderVisitors(true); setTimeout(() => renderVisitors(true), 4100);
+    if (d.to && d.to !== FR.me) return;
+    say(text, nick);
+    return;
+  }
+  if (d.to !== FR.me) return;
+  const now = Date.now();
+  if ((FR.recv[m.peer] || 0) > now - 4000) return;
+  FR.recv[m.peer] = now;
+  if (topic === 'wave') {
+    say('안녕, 나율아! 👋', nick);
+    const ch = apply({ happy: 5, social: 1 }); floats(ch); bounce();
+    addDiary(`${nick} 친구가 인사해줬어요.`);
+  } else if (topic === 'gift') {
+    const g = GIFTS.find(x => x.k === d.item); if (!g) return;
+    say(`선물이야! ${g.ic}`, nick);
+    const ch = apply(Object.assign({ kind: 1 }, g.eff)); floats(ch); bounce();
+    addDiary(`${nick} 친구가 ${g.obj} 선물해줬어요! ${g.ic}`, true);
+  }
+  save(); renderPanel();
+}
+function friendsModal(focusPeer) {
+  if (!FR.room) {
+    setModal(`<div class="tag">👫 친구</div><h3>친구랑 같이 하기</h3><p>친구랑 같이 하기는 <b>Claude 링크</b>에서만 할 수 있어요. 이 페이지에는 친구를 이어줄 서버가 없어요.</p><p style="font-size:.9rem;color:var(--muted)">Claude 링크를 친구에게 공유하고, 둘 다 같은 시간에 열어두면 친구의 나율이가 내 마을에 놀러 와요.</p><div class="choices"><button class="choice primary" type="button" id="fClose">알겠어요</button></div>`);
+    $('fClose').onclick = closeModal; return;
+  }
+  const draw = () => {
+    const fl = friendList();
+    const rows = fl.map(p => `<div class="fitem" data-peer="${esc(p.peer)}"><div class="fhead"><b>${esc(cleanNick(p.presence.nick))}</b><small>의 나율이 · ${esc(Math.floor(Number(p.presence.age) || 0))}살${p.presence.pet && PETS[p.presence.pet] ? ' · ' + PETS[p.presence.pet].ic : ''}</small></div>
+      <div class="fbtns"><button type="button" data-act="wave">👋 인사</button>${GIFTS.map(g => `<button type="button" data-act="gift" data-item="${g.k}">${g.ic} ${g.name}</button>`).join('')}</div>
+      <div class="fbtns" style="margin-top:6px">${PHRASES.map((t, i) => `<button type="button" data-act="chat" data-i="${i}">💬 ${t}</button>`).join('')}</div></div>`).join('');
+    setModal(`<div class="tag">👫 친구</div><h3>지금 마을에 온 친구들</h3>
+      <div class="nickrow"><input id="fNick" maxlength="12" placeholder="내 이름 (친구에게 보여요)" value="${esc(S.nick || '')}" aria-label="친구에게 보일 이름"><button type="button" id="fNickSave">이름 저장</button></div>
+      <div class="flist">${rows || '<div class="fempty">지금은 놀러 온 친구가 없어요.<br>Claude 링크를 친구에게 공유하고 같이 열어보세요!</div>'}</div>
+      <p class="rnote" id="fNote"></p>
+      <div class="choices"><button class="choice primary" type="button" id="fClose">닫기</button></div>`);
+    $('fClose').onclick = closeModal;
+    $('fNickSave').onclick = () => { const n = $('fNick').value.trim().slice(0, 12); if (!n) { $('fNote').textContent = '이름을 적어주세요.'; return; } S.nick = n; save(); pushPresence(); $('fNote').textContent = `이제 친구들에게 "${n}"(으)로 보여요.`; };
+    $('modal').querySelectorAll('.fitem').forEach(item => {
+      const peer = item.dataset.peer;
+      item.querySelectorAll('button[data-act]').forEach(b => b.onclick = async () => {
+        const act = b.dataset.act;
+        const ok = await sendFriend(act, peer, act === 'gift' ? { item: b.dataset.item } : act === 'chat' ? { i: +b.dataset.i } : null);
+        const note = document.getElementById('fNote'); if (!note) return;
+        if (!ok) { note.textContent = '조금 천천히 보내주세요. (또는 이 링크에서는 보낼 권한이 없어요)'; return; }
+        const f = friendList().find(x => x.peer === peer); const fn = f ? cleanNick(f.presence.nick) : '친구';
+        if (act === 'wave') note.textContent = `${fn}에게 인사했어요! 👋`;
+        else if (act === 'gift') { const g = GIFTS.find(x => x.k === b.dataset.item); note.textContent = `${fn}에게 ${g.ic} ${g.obj} 보냈어요!`; const ch = apply({ kind: 1, social: 1 }); floats(ch); addDiary(`${fn} 친구에게 ${g.obj} 선물했어요.`); save(); }
+        else { note.textContent = `"${PHRASES[+b.dataset.i]}" 라고 말했어요.`; say(PHRASES[+b.dataset.i]); }
+      });
+    });
+    if (focusPeer) { const el = $('modal').querySelector(`.fitem[data-peer="${CSS.escape(focusPeer)}"]`); if (el) el.scrollIntoView({ block: 'nearest' }); }
+  };
+  draw();
+}
+
 /* ================= 순위 ================= */
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RANK_KEY = 'nayul-ranks-v1';
@@ -1921,6 +2076,8 @@ function start(data) {
   $('settingsBtn').addEventListener('click', () => { if (!modalOpen) settingsModal(); });
   $('rankBtn').addEventListener('click', () => { if (!modalOpen) rankModal(); });
   initSharedRank();
+  initFriends();
+  $('friendBtn').addEventListener('click', () => { if (!modalOpen) friendsModal(); });
   window.addEventListener('resize', () => render(true));
   if (!S.started) queue(startModal());
   else if (S.done) queue(endingModal());
