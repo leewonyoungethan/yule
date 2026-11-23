@@ -182,6 +182,14 @@ const STAGES=[
   L.r(0,0,29,0).r(0,0,0,16).r(29,0,29,16).gr(0,29,14).p(4,7,10).p(22,25,10);
   L.e('boss',21,13);L.start=[4,13];return L;}},
 ];
+// 스테이지마다 놓인 별 (타일 좌표)
+const STAR_SPOTS=[
+  [[14,11],[47,6],[70,9],[85,6],[100,11],[125,11]],
+  [[12,11],[22,8],[44,11],[56,9],[72,6],[98,8],[125,11],[142,11]],
+  [[10,11],[31,7],[52,8],[65,5],[79,7],[97,11],[120,11],[146,11]],
+  [[5,9],[6,9],[23,9],[24,9]],
+];
+function starCap(){return 10+G.up.mana*5;}
 const THEMES={
   forest:{base:'#7a5333',top:'#5cb85c',top2:'#3e8e41',dark:'#5a3c22',plat:'#a0703f'},
   cave:{base:'#3d3757',top:'#8277c4',top2:'#5c5394',dark:'#29243e',plat:'#6b5a8a'},
@@ -193,21 +201,22 @@ const THEMES={
 const SKEY='starknight_save_v1';
 let G=newGame(),lvl,stage,P,enemies=[],projs=[],pickups=[],props=[],parts=[],texts=[],ghosts=[];
 let cam={x:0,y:0},shake=0,freeze=0,bannerT=0,state='title',stateT=0,menuSel=0,buttons=[],checkpoint=null,boss=null,winT=0,gtime=0;
-function newGame(){return{coins:0,up:{hp:0,atk:0,mana:0},unlocked:0,stage:0,kills:0,time:0,cpCoins:0,stageCoins0:0,deaths:0};}
-function save(){try{localStorage.setItem(SKEY,JSON.stringify({coins:G.coins,up:G.up,unlocked:G.unlocked,kills:G.kills,time:G.time,deaths:G.deaths}));}catch(e){}}
+function newGame(){return{coins:0,stars:5,cpStars:5,stageStars0:5,up:{hp:0,atk:0,mana:0},unlocked:0,stage:0,kills:0,time:0,cpCoins:0,stageCoins0:0,deaths:0};}
+function save(){try{localStorage.setItem(SKEY,JSON.stringify({coins:G.coins,stars:G.stars,up:G.up,unlocked:G.unlocked,kills:G.kills,time:G.time,deaths:G.deaths}));}catch(e){}}
 function loadSave(){try{const s=JSON.parse(localStorage.getItem(SKEY));if(s&&s.up)return s;}catch(e){}return null;}
 
 function newPlayer(){
-  return{x:0,y:0,w:20,h:28,vx:0,vy:0,face:1,onG:false,maxHp:6+G.up.hp,hp:6+G.up.hp,maxMana:3+G.up.mana,mana:3+G.up.mana,dmg:1+G.up.atk,
+  return{x:0,y:0,w:20,h:28,vx:0,vy:0,face:1,onG:false,maxHp:6+G.up.hp,hp:6+G.up.hp,dmg:1+G.up.atk,
     inv:0,coyote:0,buf:0,airJumps:1,airDash:true,dashT:0,dashCd:0,atkT:0,atkCd:0,atkId:0,atkDown:false,throwCd:0,wallLock:0,drop:0,dropping:false,
     dead:false,deadT:0,anim:0,sliding:false,lastPogo:-1};
 }
 function startStage(i,cp){
   G.stage=i;stage=STAGES[i];lvl=stage.build();
   enemies=[];projs=[];pickups=[];props=[];parts=[];texts=[];ghosts=[];boss=null;winT=0;
+  for(const [x,y] of STAR_SPOTS[i]||[])lvl.ents.push({type:'star',x,y});
   for(const d of lvl.ents)spawn(d);
   P=newPlayer();
-  if(!cp){G.cpCoins=G.coins;G.stageCoins0=G.coins;checkpoint={x:lvl.start[0]*T+T/2,y:(lvl.start[1]+1)*T};}
+  if(!cp){G.cpCoins=G.coins;G.stageCoins0=G.coins;G.cpStars=G.stars;G.stageStars0=G.stars;checkpoint={x:lvl.start[0]*T+T/2,y:(lvl.start[1]+1)*T};}
   else{checkpoint=cp;for(const f of props)if(f.type==='flag'&&f.x<=cp.x)f.on=true;}
   respawnAt(checkpoint);P.inv=0;
   cam.x=clamp(P.x-VW/2,0,Math.max(0,lvl.w*T-VW));cam.y=clamp(P.y-VH*0.66,0,Math.max(0,lvl.h*T-VH));
@@ -225,6 +234,7 @@ function spawn(d){
     case 'guard':E({type:'guard',w:24,h:30,hp:4,drop:5,dmg:1,spd:55,wind:0,lunge:0,cdL:0});break;
     case 'boss':boss=E({type:'boss',w:76,h:88,hp:30,drop:50,dmg:1,state:'intro',st:2.2,last:'',n:0,airT:0});break;
     case 'coin':pickups.push({type:'coin',x:cx-7,y:d.y*T+T/2-7,w:14,h:14,vx:0,vy:0,static:true,t:Math.random()*6});break;
+    case 'star':pickups.push({type:'star',x:cx-7,y:d.y*T+T/2-7,w:14,h:14,vx:0,vy:0,static:true,t:Math.random()*6});break;
     case 'potion':pickups.push({type:'potion',x:cx-8,y:by-22,w:16,h:20,vx:0,vy:0,static:true,t:Math.random()*6});break;
     case 'chest':props.push({type:'chest',x:cx-15,y:by-22,w:30,h:22,open:false,t:0});break;
     case 'flag':props.push({type:'flag',x:cx-6,y:by-56,w:20,h:56,on:false,t:0});break;
@@ -286,7 +296,6 @@ function hurtPlayer(d,srcX,force){
 function updPlayer(dt){
   const p=P;if(p.dead)return;
   p.anim+=dt;p.inv=Math.max(0,p.inv-dt);p.dashCd-=dt;p.atkCd-=dt;p.throwCd-=dt;p.wallLock-=dt;p.drop-=dt;p.dropping=p.drop>0;
-  p.mana=Math.min(p.maxMana,p.mana+dt*0.3);
   const ax=(keys.right?1:0)-(keys.left?1:0);
   const midY=Math.floor((p.y+p.h/2)/T);
   let wallDir=0;
@@ -318,8 +327,8 @@ function updPlayer(dt){
   if(p.atkT>0){p.atkT-=dt;if(p.atkT>0.04)swordHits();}
   if(pressed.throw&&p.throwCd<=0){
     p.throwCd=0.3;
-    if(p.mana>=1){p.mana-=1;projs.push({kind:'star',owner:'p',x:p.x+p.w/2-8+p.face*10,y:p.y+7,w:16,h:16,vx:p.face*560,vy:0,dmg:p.dmg+1,life:1.3,rot:0});sfx('throw');}
-    else{sfx('nope');ftext(p.x+p.w/2,p.y-6,'마나 부족','#8fc7ff',13);}
+    if(G.stars>=1){G.stars--;projs.push({kind:'star',owner:'p',x:p.x+p.w/2-8+p.face*10,y:p.y+7,w:16,h:16,vx:p.face*560,vy:0,dmg:p.dmg+1,life:1.3,rot:0});sfx('throw');}
+    else{sfx('nope');ftext(p.x+p.w/2,p.y-6,'별이 없어요','#ffe066',13);}
   }
   const wasG=p.onG,vyb=p.vy;
   moveBody(p,dt,true);
@@ -354,12 +363,15 @@ function killEnemy(e){
   e.dead=true;G.kills++;sfx('kill');
   burst(e.x+e.w/2,e.y+e.h/2,e.type==='boss'?80:18,ECOL[e.type],e.type==='boss'?420:260,e.type==='boss'?1.4:0.6,4);
   dropCoins(e.x+e.w/2,e.y+e.h/2,e.drop);
+  if(e.type!=='boss'&&Math.random()<0.35)dropStar(e.x+e.w/2,e.y);
   if(e.type!=='boss'&&Math.random()<0.2)pickups.push({type:'potion',x:e.x+e.w/2-8,y:e.y,w:16,h:20,vx:0,vy:-250,static:false,t:0,life:20});
   if(e.type==='boss'){shake=20;winT=3;sfx('slam');projs=projs.filter(p=>p.owner==='p');}
 }
 function dropCoins(x,y,n){for(let i=0;i<n;i++)pickups.push({type:'coin',x:x-6,y:y-6,w:12,h:12,vx:rand(-170,170),vy:rand(-480,-220),static:false,t:Math.random()*6,life:14,big:false});}
+function dropStar(x,y,vy=-380){pickups.push({type:'star',x:x-7,y:y-7,w:14,h:14,vx:rand(-120,120),vy,static:false,t:0,life:16});}
 function openChest(c){
   c.open=true;sfx('chest');burst(c.x+c.w/2,c.y,20,'#ffd84a',250,0.6,3);dropCoins(c.x+c.w/2,c.y+4,10+Math.floor(Math.random()*6));
+  dropStar(c.x+c.w/2,c.y);dropStar(c.x+c.w/2,c.y);
   if(Math.random()<0.35)pickups.push({type:'potion',x:c.x+c.w/2-8,y:c.y-10,w:16,h:20,vx:rand(-60,60),vy:-350,static:false,t:0,life:30});
 }
 
@@ -422,7 +434,7 @@ function updBoss(b,dt,dx){
   case 'stun':b.vx=0;if(b.st<=0){b.state='idle';b.st=0.8;}break;
   }
   moveBody(b,dt,false);
-  if(b.state==='charge'&&b.hitWall){b.state='stun';b.st=2.0;shake=14;sfx('slam');
+  if(b.state==='charge'&&b.hitWall){b.state='stun';b.st=2.0;shake=14;sfx('slam');dropStar(rand(3*T,(lvl.w-3)*T),T+8,0);
     for(let i=0;i<(ph2?3:2);i++)projs.push({kind:'rock',owner:'e',x:rand(2*T,(lvl.w-3)*T),y:T+4,w:22,h:22,vx:0,vy:0,grav:true,gs:0.5,dmg:1,life:4,rot:0,delay:0.9+i*0.3});}
   if(b.state==='air'&&b.onG&&b.airT>0.1){
     b.state='idle';b.st=ph2?0.9:1.3;shake=12;sfx('slam');dust(b.x+b.w/2,b.y+b.h,16);
@@ -462,10 +474,11 @@ function updPickups(dt){
       if(k.y>lvl.h*T+40)k.dead=true;
     }
     const cx=k.x+k.w/2,cy=k.y+k.h/2,d=Math.hypot(pcx-cx,pcy-cy);
-    if(k.type==='coin'&&d<80&&!P.dead&&(k.static?true:k.t>0.35)){k.static=false;k.life=null;k.x+=(pcx-cx)*Math.min(1,dt*10);k.y+=(pcy-cy)*Math.min(1,dt*10);k.vy=0;k.vx=0;}
-    if(!P.dead&&ov(k,P)&&(k.type!=='coin'||k.static||k.t>0.25)){
+    if((k.type==='coin'||(k.type==='star'&&G.stars<starCap()))&&d<80&&!P.dead&&(k.static?true:k.t>0.35)){k.static=false;k.life=null;k.x+=(pcx-cx)*Math.min(1,dt*10);k.y+=(pcy-cy)*Math.min(1,dt*10);k.vy=0;k.vx=0;}
+    if(!P.dead&&ov(k,P)&&(k.type!=='coin'&&k.type!=='star'||k.static||k.t>0.25)&&!(k.type==='star'&&G.stars>=starCap())){
       k.dead=true;
-      if(k.type==='coin'){G.coins++;sfx('coin');parts.push({x:cx,y:cy,vx:0,vy:-40,life:0.3,max:0.3,col:'#fff6b0',size:5,grav:0});}
+      if(k.type==='star'){G.stars++;sfx('dj');ftext(cx,cy-10,'+1 ★','#ffe066',13);}
+      else if(k.type==='coin'){G.coins++;sfx('coin');parts.push({x:cx,y:cy,vx:0,vy:-40,life:0.3,max:0.3,col:'#fff6b0',size:5,grav:0});}
       else{const h=Math.min(2,P.maxHp-P.hp);P.hp+=h;sfx('heal');ftext(cx,cy-10,h>0?'+'+h+' ♥':'가득!','#ff8fa8');burst(cx,cy,12,'#ff8fa8',150,0.5,3,-100);}
     }
   }
@@ -474,7 +487,7 @@ function updPickups(dt){
 function updProps(dt){
   for(const o of props){
     o.t+=dt;
-    if(o.type==='flag'&&!o.on&&ov(o,P)){o.on=true;checkpoint={x:o.x+6,y:o.y+o.h};G.cpCoins=G.coins;P.mana=P.maxMana;P.hp=P.maxHp;sfx('flag');ftext(o.x+10,o.y-8,'체크포인트!','#9ff0a0',18);burst(o.x+10,o.y+10,18,'#9ff0a0',180,0.6,3,0);}
+    if(o.type==='flag'&&!o.on&&ov(o,P)){o.on=true;checkpoint={x:o.x+6,y:o.y+o.h};G.cpCoins=G.coins;G.cpStars=G.stars;P.hp=P.maxHp;sfx('flag');ftext(o.x+10,o.y-8,'체크포인트!','#9ff0a0',18);burst(o.x+10,o.y+10,18,'#9ff0a0',180,0.6,3,0);}
     if(o.type==='exit'&&!P.dead&&ov({x:o.x+10,y:o.y+20,w:o.w-20,h:o.h-20},P))stageClear();
   }
 }
@@ -487,7 +500,7 @@ function stageClear(){
 const UPS=[
   {k:'hp',name:'튼튼한 갑옷',desc:'최대 체력 +1',max:5,cost:l=>30+l*20,icon:'heart'},
   {k:'atk',name:'별빛 검 강화',desc:'공격력 +1',max:4,cost:l=>40+l*35,icon:'sword'},
-  {k:'mana',name:'별의 축복',desc:'최대 마나 +1 (투척 횟수)',max:4,cost:l=>25+l*20,icon:'mana'},
+  {k:'mana',name:'별 주머니',desc:'별을 5개 더 모을 수 있어요',max:4,cost:l=>25+l*20,icon:'mana'},
 ];
 function setState(s){
   state=s;stateT=0;menuSel=0;buttons=[];
@@ -498,10 +511,10 @@ function setState(s){
     B(380,sv&&sv.unlocked>0&&sv.unlocked<STAGES.length?380:330,200,48,'새 게임',()=>{G=newGame();save();startStage(0);});
   }else if(s==='pause'){
     B(380,220,200,48,'계속하기',()=>setState('play'));
-    B(380,280,200,48,'스테이지 다시',()=>{G.coins=G.stageCoins0;startStage(G.stage);});
+    B(380,280,200,48,'스테이지 다시',()=>{G.coins=G.stageCoins0;G.stars=G.stageStars0;startStage(G.stage);});
     B(380,340,200,48,'타이틀로',()=>setState('title'));
   }else if(s==='dead'){
-    B(350,300,260,48,'체크포인트에서 다시',()=>{G.coins=G.cpCoins;startStage(G.stage,checkpoint);});
+    B(350,300,260,48,'체크포인트에서 다시',()=>{G.coins=G.cpCoins;G.stars=G.cpStars;startStage(G.stage,checkpoint);});
     B(350,360,260,48,'타이틀로',()=>setState('title'));
   }else if(s==='shop'){
     UPS.forEach((u,i)=>B(90+i*270,170,240,210,'',()=>buy(u),{up:u}));
@@ -738,6 +751,8 @@ const COIN=[makeSprite(['.yyyy.','yYwYYy','yYwYYy','yYYYYy','yYYYoy','yYYYoy','.
 const HEART_ROWS=['.RR...RR.','RwRR.RRRR','RwRRRRRRR','RRRRRRRRR','.RRRRRRD.','..RRRRD..','...RRD...','....D....'];
 const HEART=makeSprite(HEART_ROWS,{R:'#ff4d6d',w:'#ffd0da',D:'#c8304f'});
 const HEART0=makeSprite(HEART_ROWS,{R:'#4a2434',w:'#5a2c40',D:'#3a1a28'});
+const STARP=[makeSprite(['...y...','...y...','yyyYyyy','.yYwYy.','..yYy..','.yy.yy.','yy...yy'],{y:'#ffd23f',Y:'#fff09a',w:'#ffffff'}),
+             makeSprite(['...y...','..yYy..','yyYwYyy','.yYYYy.','..yyy..','.yy.yy.','y.....y'],{y:'#ffd23f',Y:'#fff09a',w:'#ffffff'})];
 const POTION=makeSprite(['..ccc..','..ggg..','..grg..','.grrrg.','grwrrrg','grwrrRg','grrrRRg','.gRRRg.','..ggg..'],{c:'#8b5a2b',g:'#d9e6f2',r:'#ff4d6d',R:'#c0304a',w:'#ffffff'});
 const CHPAL={b:'#9a6230',B:'#5a3518',y:'#ffd23f',Y:'#c98a0b',k:'#2a1608',h:'#b97a40'};
 const CHEST=makeSprite([
@@ -937,8 +952,7 @@ function txt(s,x,y,size,col='#fff',align='left',outline=true){
 }
 function drawHUD(){
   for(let i=0;i<P.maxHp;i++)heart(18+i*22,8,1.4,i<P.hp);
-  for(let i=0;i<P.maxMana;i++){const fillA=clamp(P.mana-i,0,1);ctx.fillStyle='rgba(20,30,60,0.7)';ctx.beginPath();ctx.arc(16+i*18,36,6,0,7);ctx.fill();
-    if(fillA>0){ctx.fillStyle=fillA>=1?'#5ab0ff':'#2f5f99';ctx.beginPath();ctx.arc(16+i*18,36,5*fillA,0,7);ctx.fill();}}
+  spr(STARP[0],10,28);txt(G.stars+' / '+starCap(),30,35,12,G.stars>0?'#ffe066':'#ff8a8a');
   drawCoin(VW-72,18,gtime,1.1);txt(String(G.coins),VW-62,18,15,'#ffe066');
   txt(stage.name,VW/2,15,10,'rgba(255,255,255,0.8)','center');
   if(boss&&!boss.dead){
@@ -982,7 +996,7 @@ function drawWorld(){
   for(const o of props)drawProp(o);
   for(const k of pickups){const x=k.x-cam.x,y=k.y-cam.y+(k.static?Math.sin(k.t*3)*2:0);
     if(k.life!=null&&k.life<2&&Math.floor(k.t*10)%2)continue;
-    if(k.type==='coin')drawCoin(x+k.w/2,y+k.h/2,k.t);else drawPotion(x,y);}
+    if(k.type==='coin')drawCoin(x+k.w/2,y+k.h/2,k.t);else if(k.type==='star')spr(STARP[Math.floor(k.t*6)%2],x,y);else drawPotion(x,y);}
   for(const e of enemies)drawEnemy(e);
   for(const g of ghosts)if(g.life>0.1)drawKnight(g.x-cam.x,g.y-cam.y,g.face,{ghost:true,onG:true},1,g.life>0.16?'#bfe8ff':'#6fb6e8');
   if(!P.dead&&!(P.inv>0&&Math.floor(P.inv*14)%2))drawKnight(P.x+P.w/2-cam.x,P.y+P.h-cam.y,P.face,P);
@@ -1033,7 +1047,7 @@ function drawShop(){
     const ix=b.x+b.w/2,iy=b.y+50;
     if(u.icon==='heart')heart(ix,iy-14,2.6,true);
     else if(u.icon==='sword'){ctx.save();ctx.translate(ix-16,iy+12);ctx.rotate(-0.8);ctx.scale(1.6,1.6);drawSword();ctx.restore();}
-    else{ctx.fillStyle='#5ab0ff';ctx.beginPath();ctx.arc(ix,iy,16,0,7);ctx.fill();drawStar(ix,iy,9,0,'#fff');}
+    else{spr(STARP[0],ix-21,iy-21,1,false,3);}
     txt(u.name,ix,b.y+100,20,'#fff','center');txt(u.desc,ix,b.y+126,14,'#cfc7e8','center');
     for(let j=0;j<u.max;j++){ctx.fillStyle=j<l?'#ffd84a':'rgba(255,255,255,0.2)';ctx.fillRect(ix-u.max*9+j*18,b.y+146,14,8);}
     txt(maxed?'최대':c+' 코인',ix,b.y+182,18,maxed?'#9ff0a0':(can?'#ffe066':'#ff8a8a'),'center');});
