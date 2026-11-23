@@ -12,14 +12,17 @@ canvas{display:block;background:#000;image-rendering:pixelated}
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
 .tb{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.35);color:#fff;font:bold 20px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;width:64px;height:64px;touch-action:none}
 .tb.on{background:rgba(255,215,90,.4)}
+#joy{position:absolute;left:0;bottom:0;width:45%;height:65%;pointer-events:auto;touch-action:none}
+#joyBase{position:absolute;left:calc(36px + env(safe-area-inset-left,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.35);box-sizing:border-box;transition:opacity .15s;opacity:.7}
+#joyBase.on{opacity:1;transition:none}
+#joyKnob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,255,255,.35);border:2px solid rgba(255,255,255,.7);box-sizing:border-box}
+#joyBase.on #joyKnob{background:rgba(255,215,90,.55)}
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="c" width="960" height="540"></canvas></div>
 <div id="touch">
-  <div class="tb" data-k="left"  style="left:16px;bottom:24px">◀</div>
-  <div class="tb" data-k="right" style="left:96px;bottom:24px">▶</div>
-  <div class="tb" data-k="down"  style="left:56px;bottom:100px;width:52px;height:52px;font-size:16px">▼</div>
+  <div id="joy"><div id="joyBase"><div id="joyKnob"></div></div></div>
   <div class="tb" data-k="attack" style="right:96px;bottom:24px">⚔</div>
   <div class="tb" data-k="jump"  style="right:16px;bottom:64px">⤒</div>
   <div class="tb" data-k="dash"  style="right:176px;bottom:24px;width:56px;height:56px">»</div>
@@ -60,6 +63,40 @@ document.querySelectorAll('.tb').forEach(b=>{
   b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);
   b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',up);
 });
+// ----- 가상 조이스틱 (왼쪽 화면 아무 곳이나 누르면 그 자리에 생김) -----
+let analogX=null;
+const SRC={joy:{},pad:{}};
+function srcSet(src,k,on){if(!!SRC[src][k]===on)return;SRC[src][k]=on;on?press(k):release(k);}
+(function(){
+  const zone=document.getElementById('joy'),base=document.getElementById('joyBase'),knob=document.getElementById('joyKnob'),R=48;
+  let id=null,cx=0,cy=0;
+  function setStick(dx,dy){
+    const d=Math.hypot(dx,dy),m=Math.min(d,R),kx=d?dx/d*m:0,ky=d?dy/d*m:0;
+    knob.style.transform='translate('+kx+'px,'+ky+'px)';
+    const nx=kx/R,ny=ky/R;
+    srcSet('joy','left',nx<-0.3);srcSet('joy','right',nx>0.3);srcSet('joy','down',ny>0.6&&Math.abs(nx)<0.75);
+    analogX=Math.abs(nx)>0.3?nx:0;
+  }
+  function end(e){if(e.pointerId!==id)return;id=null;analogX=null;base.classList.remove('on');base.style.left=base.style.top='';base.style.bottom='';knob.style.transform='';
+    srcSet('joy','left',false);srcSet('joy','right',false);srcSet('joy','down',false);}
+  zone.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();if(id!==null)return;id=e.pointerId;try{zone.setPointerCapture(id);}catch(_){}
+    const r=zone.getBoundingClientRect();
+    const bl=clamp(e.clientX-r.left-60,8,Math.max(8,r.width-128)),bt=clamp(e.clientY-r.top-60,8,Math.max(8,r.height-128));
+    cx=r.left+bl+60;cy=r.top+bt+60;
+    base.style.left=bl+'px';base.style.top=bt+'px';base.style.bottom='auto';base.classList.add('on');setStick(0,0);});
+  zone.addEventListener('pointermove',e=>{if(e.pointerId===id){e.preventDefault();setStick(e.clientX-cx,e.clientY-cy);}});
+  zone.addEventListener('pointerup',end);zone.addEventListener('pointercancel',end);
+})();
+// ----- 실제 게임패드 -----
+function pollPad(){
+  let gp=null;try{const l=navigator.getGamepads?navigator.getGamepads():[];for(const g of l)if(g&&g.connected){gp=g;break;}}catch(e){}
+  if(!gp){for(const k in SRC.pad)if(SRC.pad[k])srcSet('pad',k,false);if(SRC.pad.analog){SRC.pad.analog=false;analogX=null;}return;}
+  const b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed),x=gp.axes[0]||0,y=gp.axes[1]||0;
+  srcSet('pad','left',x<-0.3||b(14));srcSet('pad','right',x>0.3||b(15));srcSet('pad','down',y>0.6||b(13));
+  srcSet('pad','jump',b(0));srcSet('pad','attack',b(2));srcSet('pad','dash',b(1)||b(5)||b(7));srcSet('pad','throw',b(3)||b(4));
+  srcSet('pad','start',b(9));srcSet('pad','pause',b(9)&&state==='play');
+  if(Math.abs(x)>0.3){analogX=x;SRC.pad.analog=true;}else if(SRC.pad.analog){analogX=null;SRC.pad.analog=false;}
+}
 
 // ================= 소리 =================
 let AC=null,muted=false;
@@ -249,7 +286,8 @@ function updPlayer(dt){
     p.dashT-=dt;p.vx=p.face*600;p.vy=0;
     ghosts.push({x:p.x+p.w/2,y:p.y+p.h,face:p.face,life:0.22});
   }else{
-    if(p.wallLock<=0){const a=ax?(p.onG?2600:1600):(p.onG?2800:700);p.vx=approach(p.vx,ax*245,a*dt);}
+    const mag=(analogX&&ax&&Math.sign(analogX)===ax)?clamp((Math.abs(analogX)-0.3)/0.45,0.45,1):1;
+    if(p.wallLock<=0){const a=ax?(p.onG?2600:1600):(p.onG?2800:700);p.vx=approach(p.vx,ax*245*mag,a*dt);}
     if(ax&&p.wallLock<=0&&p.atkT<=0)p.face=ax;
     p.vy+=GRAV*dt;
     if(wallDir&&wallDir===ax&&p.vy>0){p.vy=Math.min(p.vy,110);p.sliding=true;if(Math.random()<0.3)dust(wallDir>0?p.x+p.w:p.x,p.y+p.h/2,1);}
@@ -480,6 +518,7 @@ cv.addEventListener('pointermove',e=>{const m=canvasPos(e);for(let i=0;i<buttons
 // ================= 업데이트 =================
 function update(dt){
   gtime+=dt;stateT+=dt;
+  pollPad();
   if(pressed.mute)muted=!muted;
   if(state==='play')updPlay(dt);
   else if(state==='clear'){updWorld(dt*0.3);if(stateT>2.2)setState('shop');}
@@ -731,7 +770,7 @@ function drawHUD(){
     ctx.fillStyle=boss.hp<=boss.maxHp/2?'#ff4a2a':'#ff9f43';rr(bx,by,bw*boss.hp/boss.maxHp,12,4);ctx.fill();
   }
   if(G.stage===0&&gtime<9999&&P.x<20*T&&state==='play'){
-    txt(isTouch?'◀ ▶ 이동   ⤒ 점프(2단)   ⚔ 공격   » 대시   ★ 투척':'A/D 이동 · W/Space 점프(2단) · J 공격 · K 대시 · L 투척 · ↓+J 내려찍기',W/2,H-24,15,'#fff','center');}
+    txt(isTouch?'왼쪽 조이스틱 이동(↓ 내려찍기)   ⤒ 점프(2단)   ⚔ 공격   » 대시   ★ 투척':'A/D 이동 · W/Space 점프(2단) · J 공격 · K 대시 · L 투척 · ↓+J 내려찍기',W/2,H-24,15,'#fff','center');}
   if(muted)txt('🔇',W-30,60,16);
 }
 function drawButtons(){
