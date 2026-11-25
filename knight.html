@@ -159,7 +159,8 @@ function quake(b,sp=270){const gy=b.y+b.h;projs.push({kind:'wave',owner:'e',x:b.
 function choose(b,opts){const o=opts.filter(v=>v!==b.last);const r=o[Math.floor(Math.random()*o.length)];b.last=r;return r;}
 function pushX(b,d){const nx=b.x+d,y0=Math.floor(b.y/T),y1=Math.floor((b.y+b.h-0.01)/T),tx=Math.floor((d>0?nx+b.w-0.01:nx)/T);for(let ty=y0;ty<=y1;ty++)if(solid(tx,ty))return;b.x=nx;}
 function hoverTo(b,dt,k=2.2){b.vx=approach(b.vx,(b.tx-b.x)*k,700*dt);b.vy=approach(b.vy,(b.ty-b.y)*k+Math.sin(gtime*3)*20,700*dt);}
-function nextMove(b,st=0.6){b.state='move';b.st=st;b.tx=rand(4*T,25*T-b.w);b.ty=rand(3*T,6.5*T);}
+function nextMove(b,st=0.6){b.state='move';b.st=st;b.tx=rand(4*T,25*T-b.w);b.ty=rand(3*T,6.5*T);
+  if(b.kind==='witch'){b.st=st+0.7;b.ty=rand(5*T,8*T);}}
 function bigBlade(px,py,f,a,len,col='#cfd6e6',hilt='#8a1a2a'){ctx.save();ctx.translate(px,py);ctx.scale(f,1);ctx.rotate(a);ctx.fillStyle='#4a3020';ctx.fillRect(-6,-2,8,4);ctx.fillStyle=hilt;ctx.fillRect(2,-7,4,14);ctx.fillStyle=col;ctx.fillRect(6,-3,len,6);ctx.beginPath();ctx.moveTo(6+len,-3);ctx.lineTo(13+len,0);ctx.lineTo(6+len,3);ctx.fill();ctx.fillStyle='rgba(255,255,255,0.9)';ctx.fillRect(6,-3,len,2);ctx.restore();}
 const FIRE={col:'#ff6a1a',col2:'#ffe07a',r:7},VO={col:'#9a5cff',col2:'#ffffff',r:6,life:6};
 
@@ -270,13 +271,13 @@ function updWitch(b,dt,dx){
     case 'intro':hoverTo(b,dt);if(b.st<=0){nextMove(b,0.6);sfx('roar');}break;
     case 'move':hoverTo(b,dt);b.face=dx>0?1:-1;
       if(b.st<=0){const o=choose(b,['ring','icicles','snipe','blink',ph2?'ring':'snipe']);b.state=o;b.n=0;b.st=o==='ring'?0.6:o==='blink'?0.35:0.5;}break;
-    case 'ring':hoverTo(b,dt);if(b.st<=0){ringShot(b.x+b.w/2,b.y+b.h/2,ph2?14:10,ph2?165:145,b.n*0.3+gtime,{col:'#5fc8ff',col2:'#ffffff',r:6});sfx('throw');b.n++;b.st=0.42;if(b.n>=(ph2?3:2))nextMove(b);}break;
-    case 'icicles':hoverTo(b,dt);if(b.st<=0){const px=P.x+P.w/2,c=ph2?7:5;
-      for(let i=0;i<c;i++){const ix=clamp(px+(i-(c-1)/2)*70+rand(-10,10),2*T,28*T);projs.push({kind:'icicle',owner:'e',x:ix-7,y:T+2,w:14,h:26,vx:0,vy:0,grav:true,gs:0.6,dmg:1,life:4,delay:0.6+Math.abs(i-(c-1)/2)*0.12});}
+    case 'ring':hoverTo(b,dt);if(b.st<=0){ringShot(b.x+b.w/2,b.y+b.h/2,ph2?10:8,ph2?130:115,b.n*0.3+gtime,{col:'#5fc8ff',col2:'#ffffff',r:6});sfx('throw');b.n++;b.st=0.6;if(b.n>=(ph2?2:1))nextMove(b);}break;
+    case 'icicles':hoverTo(b,dt);if(b.st<=0){const px=P.x+P.w/2,c=ph2?5:4;
+      for(let i=0;i<c;i++){const ix=clamp(px+(i-(c-1)/2)*90+rand(-10,10),2*T,28*T);projs.push({kind:'icicle',owner:'e',x:ix-7,y:T+2,w:14,h:26,vx:0,vy:0,grav:true,gs:0.45,dmg:1,life:4,delay:0.9+Math.abs(i-(c-1)/2)*0.15});}
       sfx('throw');nextMove(b,0.9);}break;
-    case 'snipe':hoverTo(b,dt);if(b.st<=0){const cx=b.x+b.w/2,cy=b.y+b.h/2,[vx,vy]=aimV(cx,cy,ph2?360:300);eShot(cx,cy,vx,vy,{col:'#9fe0ff',col2:'#ffffff',r:5});sfx('arrow');b.n++;b.st=0.28;if(b.n>=(ph2?5:3))nextMove(b);}break;
-    case 'blink':b.fade=Math.max(0,b.st/0.35);b.vx=b.vy=0;if(b.st<=0){b.x=clamp((P.x<15*T?22:6)*T+rand(-40,40),2*T,27*T);b.y=rand(3,6)*T;b.tx=b.x;b.ty=b.y;b.state='appear';b.st=0.35;}break;
-    case 'appear':b.fade=1-Math.max(0,b.st/0.35);b.vx=b.vy=0;if(b.st<=0){b.fade=1;b.state='ring';b.n=0;b.st=0.25;}break;
+    case 'snipe':hoverTo(b,dt);if(b.st<=0){const cx=b.x+b.w/2,cy=b.y+b.h/2,[vx,vy]=aimV(cx,cy,ph2?260:220);eShot(cx,cy,vx,vy,{col:'#9fe0ff',col2:'#ffffff',r:5});sfx('arrow');b.n++;b.st=0.45;if(b.n>=(ph2?3:2))nextMove(b);}break;
+    case 'blink':b.fade=Math.max(0,b.st/0.35);b.vx=b.vy=0;if(b.st<=0){b.x=clamp((P.x<15*T?22:6)*T+rand(-40,40),2*T,27*T);b.y=rand(5,8)*T;b.tx=b.x;b.ty=b.y;b.state='appear';b.st=0.35;}break;
+    case 'appear':b.fade=1-Math.max(0,b.st/0.35);b.vx=b.vy=0;if(b.st<=0){b.fade=1;b.state='ring';b.n=0;b.st=0.6;}break;
   }
   b.x+=b.vx*dt;b.y+=b.vy*dt;b.x=clamp(b.x,T,29*T-b.w);b.y=clamp(b.y,T,12*T);
   b.invuln=b.fade<0.5;b.noContact=b.fade<0.5;
@@ -474,7 +475,7 @@ const BOSSES={
   king:{title:'슬라임 대왕의 둥지',name:'슬라임 대왕 말랑',w:84,h:60,hp:40,upd:updKing,draw:drawKing,plats:[[4,7,10],[22,25,10]]},
   dknight:{title:'흑기사의 결투장',name:'흑기사 바르칸',w:34,h:54,hp:44,upd:updDKnight,draw:drawDKnight,plats:[[3,6,10],[23,26,10]]},
   worm:{title:'모래 지렁이의 굴',name:'모래 지렁이 샤르굴',w:46,h:130,hp:44,upd:updWorm,draw:drawWorm,plats:[[3,6,10],[13,16,8],[23,26,10]],spawn:[15,13]},
-  witch:{title:'서리 마녀의 탑',name:'서리 마녀 히엘라',w:30,h:46,hp:42,upd:updWitch,draw:drawWitch,plats:[[3,6,11],[11,14,8],[16,19,8],[23,26,11]],spawn:[15,5],fly:true},
+  witch:{title:'서리 마녀의 탑',name:'서리 마녀 히엘라',w:30,h:46,hp:30,upd:updWitch,draw:drawWitch,plats:[[3,6,11],[11,14,8],[16,19,8],[23,26,11]],spawn:[15,5],fly:true},
   toad:{title:'독두꺼비의 늪',name:'독두꺼비 구루크',w:72,h:52,hp:50,upd:updToad,draw:drawToad,plats:[[4,7,10],[22,25,10]]},
   flame:{title:'화염 정령의 제단',name:'화염 정령 이그니스',w:44,h:52,hp:50,upd:updFlame,draw:drawFlame,plats:[[3,6,11],[12,17,8],[23,26,11]],spawn:[15,5],fly:true},
   griffin:{title:'폭풍 그리폰의 둥지',name:'폭풍 그리폰 제피르',w:76,h:54,hp:52,upd:updGriffin,draw:drawGriffin,plats:[[3,6,10],[12,17,7],[23,26,10]],spawn:[15,4],fly:true},
@@ -991,7 +992,10 @@ function stageClear(){
 // ================= 순위 =================
 // Claude 링크에서는 공유 저장소(scores/<내 id>)에 최고 기록을 올리고 모두의 기록을 실시간으로 받아요.
 // 저장소가 없는 곳(GitHub Pages 등)에서는 이 기기 최고 기록만 보여요.
-const RANK={db:null,user:null,uid:null,rows:[],names:{},status:'loading',writing:false,writeErr:false};
+// GitHub Pages 등 Claude 밖에서 쓸 공유 순위 서버(Supabase). 비워 두면 이 기기 기록만 보여요.
+// url: 프로젝트 주소(https://xxxx.supabase.co), key: anon(publishable) 공개 키 — 공개돼도 되는 키예요.
+const SUPA={url:'',key:''};
+const RANK={mode:'off',db:null,user:null,uid:null,rows:[],names:{},status:'loading',writing:false,writeErr:false,lastFetch:0};
 const BKEY='starknight_best_v1';
 function rankScore(cleared,time){return cleared*100000+Math.max(0,99999-Math.floor(time));}
 function stageLabel(n){return n>=STAGES.length?'완주':STAGES[n].name.split(' ')[0];}
@@ -1000,6 +1004,7 @@ function localBest(){try{return JSON.parse(localStorage.getItem(BKEY))||null;}ca
 function submitScore(){
   const rec={cleared:G.unlocked,time:Math.round(G.time),kills:G.kills,deaths:G.deaths,score:rankScore(G.unlocked,G.time),at:Date.now()};
   const lb=localBest();if(!lb||rec.score>lb.score){try{localStorage.setItem(BKEY,JSON.stringify(rec));}catch(e){}}
+  if(RANK.mode==='web'){webSubmit(rec);return;}
   if(!RANK.db||!RANK.uid||RANK.writing)return;
   const mine=RANK.rows.find(r=>r.id===RANK.uid);if(mine&&mine.score>=rec.score)return;
   RANK.writing=true;RANK.db.doc('scores/'+RANK.uid).set(rec).then(()=>{RANK.writeErr=false;}).catch(()=>{RANK.writeErr=true;}).finally(()=>{RANK.writing=false;});
@@ -1008,23 +1013,53 @@ function resolveNames(){
   if(!RANK.user)return;const ids=RANK.rows.slice(0,30).map(r=>r.id);if(RANK.uid&&!ids.includes(RANK.uid))ids.push(RANK.uid);
   RANK.user.profiles(ids).then(ps=>{for(const id of ids)if(ps&&ps[id])RANK.names[id]=ps[id].name||'';}).catch(()=>{});
 }
+// ----- Supabase 순위 (Claude 밖) -----
+function webIdent(){
+  let v=null;try{v=JSON.parse(localStorage.getItem('starknight_pid'));}catch(e){}
+  if(!v||!v.id||!v.secret){const r=()=>crypto.getRandomValues(new Uint32Array(4)).join('-');v={id:crypto.randomUUID?crypto.randomUUID():'00000000-0000-4000-8000-'+String(Date.now()).slice(-12).padStart(12,'0'),secret:r()+r()};
+    try{localStorage.setItem('starknight_pid',JSON.stringify(v));}catch(e){}}
+  return v;
+}
+function webName(ask){
+  let n='';try{n=localStorage.getItem('starknight_name')||'';}catch(e){}
+  if(!n||ask){let a=null;try{a=window.prompt('순위에 보일 이름을 적어 주세요 (12자까지)',n||'');}catch(e){}
+    a=(a||'').replace(/[\u0000-\u001f]/g,'').trim().slice(0,12);if(a)n=a;if(!n)n='기사'+String(Math.floor(Math.random()*9000)+1000);
+    try{localStorage.setItem('starknight_name',n);}catch(e){}}
+  return n;
+}
+function supaFetch(path,opt){return fetch(SUPA.url.replace(/\/$/,'')+path,Object.assign({},opt,{headers:Object.assign({apikey:SUPA.key,Authorization:'Bearer '+SUPA.key,'Content-Type':'application/json'},(opt&&opt.headers)||{})}));}
+function webLoad(){
+  RANK.lastFetch=Date.now();
+  supaFetch('/rest/v1/knight_scores?select=id,name,cleared,time_sec,kills,score&order=score.desc&limit=100').then(r=>{if(!r.ok)throw 0;return r.json();})
+    .then(a=>{RANK.rows=(Array.isArray(a)?a:[]).map(v=>({id:String(v.id),name:String(v.name||'').slice(0,12),score:+v.score||0,cleared:+v.cleared||0,time:+v.time_sec||0,kills:+v.kills||0}));RANK.status='ok';})
+    .catch(()=>{if(RANK.status!=='ok')RANK.status='error';});
+}
+function webSubmitName(){const me=webIdent(),r=RANK.rows.find(x=>x.id===me.id);if(!r)return;
+  supaFetch('/rest/v1/rpc/rename_knight_score',{method:'POST',body:JSON.stringify({p_id:me.id,p_secret:me.secret,p_name:webName(false)})}).then(x=>{if(x.ok)webLoad();}).catch(()=>{});}
+function webSubmit(rec){
+  if(RANK.writing)return;const me=webIdent();
+  const mine=RANK.rows.find(r=>r.id===me.id);if(mine&&mine.score>=rec.score)return;
+  RANK.writing=true;
+  supaFetch('/rest/v1/rpc/submit_knight_score',{method:'POST',body:JSON.stringify({p_id:me.id,p_secret:me.secret,p_name:webName(false),p_cleared:rec.cleared,p_time:rec.time,p_kills:rec.kills})})
+    .then(r=>{RANK.writeErr=!r.ok;if(r.ok)webLoad();}).catch(()=>{RANK.writeErr=true;}).finally(()=>{RANK.writing=false;});
+}
 (async function(){
   try{
-    if(!window.claude||typeof window.claude.use!=='function'){RANK.status='off';return;}
-    const[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);
-    if(!db){RANK.status='off';return;}
-    RANK.db=db;RANK.user=user;RANK.uid=user?await user.id():null;
+    let db=null,user=null;
+    if(window.claude&&typeof window.claude.use==='function')[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);
+    if(!db){if(SUPA.url&&SUPA.key){RANK.mode='web';RANK.uid=webIdent().id;webLoad();}else RANK.status='off';return;}
+    RANK.mode='claude';RANK.db=db;RANK.user=user;RANK.uid=user?await user.id():null;
     const timer=setTimeout(()=>{if(RANK.status==='loading')RANK.status='slow';},10000);
     db.collection('scores').orderBy('score','desc').limit(200).onSnapshot(snap=>{clearTimeout(timer);
       RANK.rows=snap.docs.filter(d=>d.exists).map(d=>{const v=d.data()||{};return{id:d.id,score:+v.score||0,cleared:+v.cleared||0,time:+v.time||0,kills:+v.kills||0};});
       RANK.status='ok';resolveNames();},()=>{clearTimeout(timer);RANK.status='error';});
   }catch(e){RANK.status='off';}
 })();
-function rankName(id){const n=RANK.names[id];return n||('기사 '+String(id).slice(-4));}
+function rankName(id){if(RANK.mode==='web'){const r=RANK.rows.find(x=>x.id===id);return(r&&r.name)||'기사';}const n=RANK.names[id];return n||('기사 '+String(id).slice(-4));}
 function drawRank(){
   dim(0.72);ctx.fillStyle='rgba(28,22,48,0.96)';rr(150,40,660,420,16);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='#ffd84a';ctx.stroke();
   txt('순위',W/2,74,30,'#ffe066','center');
-  const shared=RANK.status==='ok';
+  const shared=RANK.status==='ok';if(RANK.mode==='web'&&Date.now()-RANK.lastFetch>20000)webLoad();
   txt(shared?'모두의 기록 · 도달한 스테이지가 높고 빠를수록 위로':'이 기기 기록',W/2,104,13,'#cfc7e8','center');
   const cols=[200,250,500,600,690];
   txt('#',cols[0],134,13,'#9a90c0','center');txt('이름',cols[1],134,13,'#9a90c0');txt('도달',cols[2],134,13,'#9a90c0','center');txt('시간',cols[3],134,13,'#9a90c0','center');txt('처치',cols[4],134,13,'#9a90c0','center');
@@ -1039,11 +1074,11 @@ function drawRank(){
     rows.slice(0,10).forEach((r,i)=>row(i,170+i*28,rankName(r.id),r,r.id===RANK.uid));
     const mi=rows.findIndex(r=>r.id===RANK.uid);
     if(mi>=10){ctx.fillStyle='rgba(255,255,255,0.15)';ctx.fillRect(180,448-40,600,2);row(mi,430,rankName(RANK.uid),rows[mi],true);}
-    else if(mi<0)txt(RANK.writeErr?'기록을 올리지 못했어요. 이 링크에서는 보기만 할 수 있어요.':'스테이지를 깨면 내 기록이 올라가요.',W/2,432,13,RANK.writeErr?'#ff9a9a':'#cfc7e8','center');
+    else if(mi<0)txt(RANK.writeErr?(RANK.mode==='web'?'기록을 올리지 못했어요. 잠시 뒤 다시 깨면 올라가요.':'기록을 올리지 못했어요. 이 링크에서는 보기만 할 수 있어요.'):'스테이지를 깨면 내 기록이 올라가요.',W/2,432,13,RANK.writeErr?'#ff9a9a':'#cfc7e8','center');
   }else{
     const lb=localBest();
     if(lb)row(0,180,'나',lb,true);else txt('아직 기록이 없어요.',W/2,190,15,'#ffffff','center');
-    const msg=RANK.status==='loading'||RANK.status==='slow'?(RANK.status==='slow'?'순위를 불러오는 데 오래 걸려요…':'순위를 불러오는 중…'):RANK.status==='error'?'순위를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.':'모두의 순위는 Claude 링크에서 열었을 때 볼 수 있어요.';
+    const msg=RANK.status==='loading'||RANK.status==='slow'?(RANK.status==='slow'?'순위를 불러오는 데 오래 걸려요…':'순위를 불러오는 중…'):RANK.status==='error'?'순위를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.':'모두의 순위는 아직 연결되지 않았어요.';
     txt(msg,W/2,300,14,'#cfc7e8','center');
   }
   drawButtons();
@@ -1062,7 +1097,8 @@ function setState(s){
     B(380,hasC?380:330,200,48,'새 게임',()=>{G=newGame();save();startStage(0);});
     B(380,hasC?440:390,200,44,'순위',()=>{rankBack='title';setState('rank');});
   }else if(s==='rank'){
-    B(380,470,200,44,'돌아가기',()=>setState(rankBack));
+    if(RANK.mode==='web'){B(270,470,200,44,'돌아가기',()=>setState(rankBack));B(490,470,200,44,'이름 바꾸기',()=>{webName(true);RANK.rows=RANK.rows.slice();const me=RANK.rows.find(r=>r.id===RANK.uid);if(me)webSubmitName();});}
+    else B(380,470,200,44,'돌아가기',()=>setState(rankBack));
   }else if(s==='pause'){
     B(380,220,200,48,'계속하기',()=>setState('play'));
     B(380,280,200,48,'스테이지 다시',()=>{G.coins=G.stageCoins0;G.stars=G.stageStars0;startStage(G.stage);});
