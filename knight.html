@@ -587,9 +587,9 @@ for(let w=1;w<=10;w++)for(let s=1;s<=4;s++){
 }
 // ----- 상점 장비: 검 10 · 별 10 · 갑옷 10 -----
 const SWORDS=[
-  {name:'나무 검',dmg:1,reach:0,cost:0,blade:'#d8aa6a',edge:'#9a6a3a',guard:'#7a5a3a'},
-  {name:'구리 검',dmg:2,reach:0,cost:40,blade:'#f0aa7a',edge:'#b8703a',guard:'#8a5a2a'},
-  {name:'강철 검',dmg:3,reach:0,cost:90,blade:'#f6f9ff',edge:'#aebbd8',guard:'#ffd23f'},
+  {name:'백운도',dmg:2,reach:2,cost:0,blade:'#f6f9ff',edge:'#c8d4e8',guard:'#f2f2ee'},
+  {name:'홍월도',dmg:2,reach:2,cost:0,blade:'#ffd6d6',edge:'#c8283a',guard:'#5a1a1a'},
+  {name:'흑야도',dmg:2,reach:2,cost:0,blade:'#9a9ac0',edge:'#44445e',guard:'#c8a040'},
   {name:'은빛 검',dmg:3,reach:10,cost:150,blade:'#ffffff',edge:'#c8d8f0',guard:'#9ab0d0'},
   {name:'루비 검',dmg:4,reach:6,cost:220,blade:'#ffa0a0',edge:'#d83a4a',guard:'#ffd23f'},
   {name:'사파이어 검',dmg:4,reach:14,cost:300,blade:'#a8d8ff',edge:'#3a7ad8',guard:'#e8e8f0'},
@@ -652,9 +652,9 @@ const SKEY='starknight_save_v1';
 let sparks=[];
 let G=newGame(),lvl,stage,P,enemies=[],projs=[],pickups=[],props=[],parts=[],texts=[],ghosts=[];
 let cam={x:0,y:0},shake=0,freeze=0,bannerT=0,state='title',stateT=0,menuSel=0,buttons=[],checkpoint=null,boss=null,winT=0,gtime=0;
-function newGame(){return{coins:0,stars:5,cpStars:5,stageStars0:5,owned:{sword:[0],star:[0],armor:[0]},eq:{sword:[0,0,0],star:0,armor:0},lv:1,xp:0,unlocked:0,stage:0,kills:0,time:0,cpCoins:0,stageCoins0:0,deaths:0};}
+function newGame(){return{coins:0,stars:5,cpStars:5,stageStars0:5,owned:{sword:[0,1,2],star:[0],armor:[0]},eq:{sword:[0,1,2],star:0,armor:0},lv:1,xp:0,unlocked:0,stage:0,kills:0,time:0,cpCoins:0,stageCoins0:0,deaths:0};}
 function save(){try{localStorage.setItem(SKEY,JSON.stringify({coins:G.coins,stars:G.stars,owned:G.owned,eq:G.eq,lv:G.lv,xp:G.xp,unlocked:G.unlocked,kills:G.kills,time:G.time,deaths:G.deaths}));}catch(e){}}
-function loadSave(){try{const s=JSON.parse(localStorage.getItem(SKEY));if(s&&(s.up||s.owned)){if(!s.owned){s.owned={sword:[0],star:[0],armor:[0]};s.eq={sword:[0,0,0],star:0,armor:0};}if(!Array.isArray(s.eq.sword))s.eq.sword=[s.eq.sword|0,s.eq.sword|0,s.eq.sword|0];delete s.up;return s;}}catch(e){}return null;}
+function loadSave(){try{const s=JSON.parse(localStorage.getItem(SKEY));if(s&&(s.up||s.owned)){if(!s.owned){s.owned={sword:[0,1,2],star:[0],armor:[0]};s.eq={sword:[0,1,2],star:0,armor:0};}for(const k of[0,1,2])if(!s.owned.sword.includes(k))s.owned.sword.push(k);if(!Array.isArray(s.eq.sword))s.eq.sword=[s.eq.sword|0,s.eq.sword|0,s.eq.sword|0];delete s.up;return s;}}catch(e){}return null;}
 
 function newPlayer(){
   return{x:0,y:0,w:20,h:28,vx:0,vy:0,face:1,onG:false,maxHp:curArmor().hp+lvHp(),hp:curArmor().hp+lvHp(),dmg:swordDmg(),
