@@ -1314,32 +1314,33 @@ function spr(S,x,y,face=1,white=false,k=1){
 // 스프라이트 기준 픽셀 찍기 (좌우 반전 지원)
 function pxl(sx,sy,sw,face,c,r,col,w=1,h=1){ctx.fillStyle=col;const cc=face>0?c:sw-c-w;ctx.fillRect(sx+cc*PX,sy+r*PX,w*PX,h*PX);}
 
-const KPAL={h:'#2e2638',f:'#f2c9a0',e:'#1b1e2b',y:'#ffd23f',o:'#d18e0b',w:'#f6f9ff',s:'#c3cce0',d:'#7d87a3',k:'#23263a',r:'#e0483c',R:'#97281f',b:'#4d5470',B:'#272a3a',g:'#ffe98a'};
+const KPAL={h:'#2a2238',H:'#5a4a86',f:'#f8d6b4',F:'#e0a888',p:'#f4a0a0',E:'#ffffff',e:'#1b1e2b',y:'#ffd23f',o:'#d18e0b',w:'#f6f9ff',s:'#c3cce0',d:'#7d87a3',k:'#23263a',r:'#e0483c',R:'#97281f',b:'#4d5470',B:'#272a3a',g:'#ffe98a'};
 const KTOP=[
-  '....hh......',
-  '...hhh......',
-  '..hhhhhh....',
-  '..hhhhhhh...',
-  '..hhfffff...',
-  '..hfffefe...',
-  '...ffffff...',
-  '.rrsssssss..',
-  'rrRssygsss..',
-  'rRRsssysss..',
-  'rR.dddddd...',
-  'R..ssssss...',
+  '..h...hH....',
+  '..hh.hhhh...',
+  '.hhhhHhhhh..',
+  'hhhhhhhhhhh.',
+  '.Rrrrrrrrr..',
+  'Rrhhfffffh..',
+  'R.hhfeffe...',
+  '..hhfEffE...',
+  '..hhfpfffF..',
+  '...hhffFF...',
+  '..ddwsswd...',
+  '..dsswssd...',
+  '..dkkkkkd...',
 ];
 const KLEGS={
-  idle:['...bb..bb...','...bb..bb...','..BBB.BBB...'],
-  a:['..bb...bb...','.bb.....bb..','BBB.....BBB.'],
-  b:['....bbb.....','....bbbb....','...BBB.BB...'],
-  c:['...bb..bb...','..bb....bb..','.BBB...BBB..'],
-  jump:['...bbbbb....','...bb.BBB...','...BB.......'],
-  fall:['...bb..bb...','..bb....bb..','..BB.....BB.'],
+  idle:['..bbbbbbb...','..bbb.bbb...','.BBB...BBB..'],
+  a:['..bbbbbbb...','.bbb...bbb..','BBB.....BBB.'],
+  b:['...bbbbb....','...bbbbb....','...BBB.BB...'],
+  c:['..bbbbbb....','.bbb..bbb...','.BB....BB...'],
+  jump:['..bbbbbbb...','...bbBbb....','...BB.BB....'],
+  fall:['..bbbbbbb...','.bbb...bbb..','.BB.....BB..'],
 };
 const KS={};for(const k in KLEGS)KS[k]=makeSprite(KTOP.concat(KLEGS[k]),KPAL);
 // 망토 펄럭임용 프레임 (달릴 때 망토가 뒤로)
-const KTOP_RUN=KTOP.map((r,i)=>i===7?'rrrsssssss..':i===8?'rRRssygsss..':i===9?'.rRsssysss..':i===10?'.R.dddddd...':i===11?'...ssssss...':r);
+const KTOP_RUN=KTOP.map((r,i)=>i===4?'RRrrrrrrrr..':i===5?'.Rhhfffffh..':i===6?'..hhfeffe...':r);
 for(const k of['a','b','c'])KS[k]=makeSprite(KTOP_RUN.concat(KLEGS[k]),KPAL);
 const KSA={};
 function knightSet(ai){if(KSA[ai])return KSA[ai];const A=ARMORS[ai],pal=Object.assign({},KPAL,{w:A.w,s:A.s,d:A.d}),set={};
@@ -1564,8 +1565,8 @@ function drawBlade(pvx,pvy,face,a,len,ext,SW=curSword(),hand='#c3cce0'){
 function knightGeom(x,y,face,o){
   const atk=o.atkT>0,pose=atk?swordPose(o):null,lean=pose?pose.lean:0;
   const bob=(!o.onG||Math.abs(o.vx||0)>20||atk)?0:(Math.floor((o.anim||0)*2)%2);
-  const lx=Math.round(x/PX-6)+lean*face,ly=Math.round(y/PX-15+bob);
-  return{lx,ly,pose,pvx:lx+(face>0?7:4),pvy:ly+8};
+  const lx=Math.round(x/PX-6)+lean*face,ly=Math.round(y/PX-16+bob);
+  return{lx,ly,pose,pvx:lx+(face>0?7:4),pvy:ly+11};
 }
 function drawKnight(x,y,face,o,alpha=1,sil=null){
   const S=knightSet(o.armor!=null?o.armor:(G.eq?G.eq.armor:0))[knightFrame(o)],g=knightGeom(x,y,face,o),sx=g.lx*PX,sy=g.ly*PX,SW=o.sword!=null?SWORDS[o.sword]:curSword(),AR=ARMORS[o.armor!=null?o.armor:(G.eq?G.eq.armor:0)];
@@ -1576,20 +1577,20 @@ function drawKnight(x,y,face,o,alpha=1,sil=null){
   const back=g.pose&&(g.pose.ph===0)&&!o.atkDown&&o.combo!==3;
   // 왼손 칼 (몸 뒤)
   if(g.pose){const p=g.pose,a2=o.combo===4?p.a+Math.PI:o.combo===3?p.a+0.45:o.atkDown?p.a+0.5:o.combo===2?p.a-0.8:p.a+0.8;drawBlade(g.pvx-face*3,g.pvy+1,face,a2,p.len-1,p.ext,SW2,AR.d);}
-  else if(!o.sliding){const q=(c,r,col)=>pxl(sx,sy,12,face,c,r,col,1,1);q(4,9,AR.d);q(4,10,SW2.guard);q(3,10,SW2.guard);for(let i=0;i<4;i++)q(3-i,11+i,SW2.blade);}
+  else if(!o.sliding){const q=(c,r,col)=>pxl(sx,sy,12,face,c,r,col,1,1);q(3,11,AR.d);q(3,12,SW2.guard);q(2,12,SW2.guard);for(let i=0;i<4;i++)q(2-i,13+i,SW2.blade);}
   if(g.pose&&back)drawBlade(g.pvx,g.pvy-1,face,g.pose.a,g.pose.len,g.pose.ext,SW,AR.s);
   ctx.drawImage(face>0?S.c:S.f,sx,sy,S.w*PX,S.h*PX);
   // 입에 문 칼
-  {const ex=Math.min(4,bladeExtra(SW3)),L=6+ex+(o.combo===3&&o.atkT>0?2:0);P_(6,6,'#6b4a2b',2,1);P_(8,5,SW3.guard,1,3);P_(9,6,SW3.blade,L,1);P_(9,7,SW3.edge,L-1,1);}
+  {const ex=Math.min(4,bladeExtra(SW3)),L=6+ex+(o.combo===3&&o.atkT>0?2:0);P_(10,7,SW3.guard,1,3);P_(11,8,SW3.blade,L,1);P_(11,9,SW3.edge,L-1,1);}
   if(g.pose){
     if(o.combo===3)drawBlade(g.pvx,g.pvy-2,face,g.pose.a-0.45,g.pose.len,g.pose.ext,SW,AR.s);
     if(!back)drawBlade(g.pvx,g.pvy,face,g.pose.a,g.pose.len,g.pose.ext,SW,AR.s);
     const ca=Math.cos(g.pose.a)*face,sa=Math.sin(g.pose.a);lp(g.pvx+Math.round(ca*(g.pose.ext*0.5)),g.pvy+Math.round(sa*(g.pose.ext*0.5)),AR.s);
   }else if(o.throwT>0){
-    const sc=curStar().col;P_(8,7,AR.s,4,2);if(o.throwT>0.1){P_(12,6,sc,1,3);P_(11,7,sc,3,1);}
-    P_(9,10,SW.guard,2,1);P_(10,11,SW.blade,1,1);P_(11,12,SW.blade,1,1);P_(12,13,SW.edge,1,1);
-  }else if(o.sliding){P_(8,8,AR.s,1,2);P_(8,6,SW.guard,2,1);P_(9,1,SW.blade,1,5);}
-  else{const ex=Math.min(3,bladeExtra(SW));P_(8,8,AR.s,2,2);P_(9,10,SW.guard,2,1);P_(9,9,'#6b4a2b',1,1);for(let i=0;i<3+ex;i++)P_(10+i,11+i,SW.blade,1,1);P_(13+ex,14+ex,SW.edge,1,1);}
+    const sc=curStar().col;P_(8,10,AR.s,4,2);if(o.throwT>0.1){P_(12,9,sc,1,3);P_(11,10,sc,3,1);}
+    P_(9,12,SW.guard,2,1);P_(10,13,SW.blade,1,1);P_(11,14,SW.blade,1,1);P_(12,15,SW.edge,1,1);
+  }else if(o.sliding){P_(8,10,AR.s,1,2);P_(8,9,SW.guard,2,1);P_(9,3,SW.blade,1,6);}
+  else{const ex=Math.min(3,bladeExtra(SW));P_(8,10,AR.s,2,2);P_(9,12,SW.guard,2,1);P_(9,11,'#6b4a2b',1,1);for(let i=0;i<3+ex;i++)P_(10+i,13+i,SW.blade,1,1);P_(13+ex,16+ex,SW.edge,1,1);}
   ctx.restore();
 }
 function drawSword(){ctx.fillStyle='#6b4a2b';ctx.fillRect(-4,-2,6,4);ctx.fillStyle='#ffd23f';ctx.fillRect(2,-6,4,12);ctx.fillStyle='#f6f9ff';ctx.fillRect(6,-2,22,4);ctx.fillRect(28,0,2,2);ctx.fillStyle='#aebbd8';ctx.fillRect(6,0,22,2);}
