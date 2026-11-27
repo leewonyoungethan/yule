@@ -624,7 +624,16 @@ const ARMORS=[
 ];
 const GEAR={sword:SWORDS,star:STARS,armor:ARMORS};
 const SLOTS=['오른손','왼손','입'];
-const eqSwords=()=>{const a=(G&&G.eq&&Array.isArray(G.eq.sword))?G.eq.sword:[0,0,0];return a.map(i=>SWORDS[i||0]);};
+// ----- 칼 강화: +1~+10, 등급이 오르면 빛과 잔상 색이 바뀌어요 -----
+const GRADES=[{n:'보통',c:'#cfc7e8'},{n:'명검',c:'#8ad8ff'},{n:'대명검',c:'#c8a0ff'},{n:'전설',c:'#ffb04a'},{n:'신검',c:'#ffffff'}];
+const gradeOf=L=>L>=10?4:L>=9?3:L>=6?2:L>=3?1:0;
+const forgeLv=i=>(G&&G.forge&&G.forge[i])||0;
+const forgeCost=(i,L)=>Math.round((30+SWORDS[i].dmg*15)*(1+L*0.6)+L*L*10);
+function swordOf(i){i=i||0;const S=SWORDS[i],L=forgeLv(i),g=gradeOf(L),o=Object.assign({},S,{idx:i,lv:L,grade:g,dmg:S.dmg+L,reach:S.reach+L});
+  if(g===4)o.blade='hsl('+Math.floor((gtime*140)%360)+',90%,82%)';if(g>=2)o.aura=GRADES[g].c;return o;}
+const eqSwords=()=>{const a=(G&&G.eq&&Array.isArray(G.eq.sword))?G.eq.sword:[0,0,0];return a.map(swordOf);};
+const SMEARS=[['#ffffff','#fff3b0','#ffcf4a'],['#ffffff','#bfe8ff','#5ab0ff'],['#ffffff','#e0c8ff','#9a5cff'],['#ffffff','#ffd08a','#ff6a2a'],['#ffffff','#fff0a0','#ff6ad8']];
+function smearCols(){const g=Math.max(...eqSwords().map(x=>x.grade));if(g<4)return SMEARS[g];const h=Math.floor(gtime*200)%360;return['#ffffff','hsl('+h+',90%,80%)','hsl('+((h+120)%360)+',90%,65%)'];}
 const reachSword=()=>eqSwords().reduce((m,x)=>x.reach>m.reach?x:m);
 function swordDmg(){const a=eqSwords();return Math.max(1,Math.round((a[0].dmg+a[1].dmg+a[2].dmg)/3))+Math.floor(((G&&G.lv)||1)-1)/3|0;}
 function lvHp(){return Math.floor((((G&&G.lv)||1)-1)/2);}
@@ -652,8 +661,8 @@ const SKEY='starknight_save_v1';
 let sparks=[];
 let G=newGame(),lvl,stage,P,enemies=[],projs=[],pickups=[],props=[],parts=[],texts=[],ghosts=[];
 let cam={x:0,y:0},shake=0,freeze=0,bannerT=0,state='title',stateT=0,menuSel=0,buttons=[],checkpoint=null,boss=null,winT=0,gtime=0;
-function newGame(){return{coins:0,stars:5,cpStars:5,stageStars0:5,owned:{sword:[0,1,2],star:[0],armor:[0]},eq:{sword:[0,1,2],star:0,armor:0},lv:1,xp:0,unlocked:0,stage:0,kills:0,time:0,cpCoins:0,stageCoins0:0,deaths:0};}
-function save(){try{localStorage.setItem(SKEY,JSON.stringify({coins:G.coins,stars:G.stars,owned:G.owned,eq:G.eq,lv:G.lv,xp:G.xp,unlocked:G.unlocked,kills:G.kills,time:G.time,deaths:G.deaths}));}catch(e){}}
+function newGame(){return{coins:0,stars:5,cpStars:5,stageStars0:5,forge:{},owned:{sword:[0,1,2],star:[0],armor:[0]},eq:{sword:[0,1,2],star:0,armor:0},lv:1,xp:0,unlocked:0,stage:0,kills:0,time:0,cpCoins:0,stageCoins0:0,deaths:0};}
+function save(){try{localStorage.setItem(SKEY,JSON.stringify({coins:G.coins,stars:G.stars,owned:G.owned,eq:G.eq,forge:G.forge,lv:G.lv,xp:G.xp,unlocked:G.unlocked,kills:G.kills,time:G.time,deaths:G.deaths}));}catch(e){}}
 function loadSave(){try{const s=JSON.parse(localStorage.getItem(SKEY));if(s&&(s.up||s.owned)){if(!s.owned){s.owned={sword:[0,1,2],star:[0],armor:[0]};s.eq={sword:[0,1,2],star:0,armor:0};}for(const k of[0,1,2])if(!s.owned.sword.includes(k))s.owned.sword.push(k);if(!Array.isArray(s.eq.sword))s.eq.sword=[s.eq.sword|0,s.eq.sword|0,s.eq.sword|0];delete s.up;return s;}}catch(e){}return null;}
 
 function newPlayer(){
@@ -798,7 +807,7 @@ function updPlayer(dt){
   }
   if(p.atkT>0){p.atkT-=dt;const k=1-p.atkT/p.atkDur;
     if(p.swingSfx&&k>0.2){p.swingSfx=false;sfx(p.combo>=3?'swing3':p.combo===2?'swing2':'swing');}
-    if(p.combo===3&&G.lv>=8&&p.waveId!==p.atkId&&k>0.35){p.waveId=p.atkId;projs.push({kind:'slash',owner:'p',x:p.face>0?p.x+p.w:p.x-30,y:p.y-4,w:30,h:34,vx:p.face*540,vy:0,dmg:p.dmg,life:0.5,rot:0,pierce:true,hitSet:new Set(),col:'#bfe8ff'});}
+    if(p.combo===3&&G.lv>=8&&p.waveId!==p.atkId&&k>0.35){p.waveId=p.atkId;projs.push({kind:'slash',owner:'p',x:p.face>0?p.x+p.w:p.x-30,y:p.y-4,w:30,h:34,vx:p.face*540,vy:0,dmg:p.dmg,life:0.5,rot:0,pierce:true,hitSet:new Set(),col:smearCols()[1]});}
     if(k>0.18&&k<0.8)swordHits();}
   if(p.lunge>0){p.lunge-=dt;const k=1-p.atkT/p.atkDur;if(p.onG&&k>0.18)p.vx=p.face*(p.combo===3?340:150);}
   if(pressed.throw&&p.throwCd<=0){
@@ -1104,7 +1113,7 @@ function drawRank(){
 
 // ================= 상태·메뉴 =================
 let shopTab='sword',rankBack='title',swordSlot=0;
-const TABS=[['sword','검'],['star','별'],['armor','갑옷']];
+const TABS=[['sword','검'],['star','별'],['armor','갑옷'],['forge','강화']];
 function setState(s){
   state=s;stateT=0;menuSel=0;buttons=[];
   const B=(x,y,w,h,label,act,extra)=>buttons.push(Object.assign({x,y,w,h,label,act},extra||{}));
@@ -1125,15 +1134,22 @@ function setState(s){
     B(350,300,260,48,'체크포인트에서 다시',()=>{G.coins=G.cpCoins;G.stars=G.cpStars;startStage(G.stage,checkpoint);});
     B(350,360,260,48,'타이틀로',()=>setState('title'));
   }else if(s==='shop'){
-    TABS.forEach(([k,l],i)=>B(250+i*160,84,140,34,l,()=>{shopTab=k;setState('shop');menuSel=i;sfx('select');},{tab:k}));
-    if(shopTab==='sword')SLOTS.forEach((l,i)=>B(165+i*215,124,200,28,l,()=>{swordSlot=i;setState('shop');menuSel=3+i;sfx('select');},{slot:i}));
-    GEAR[shopTab].forEach((it,i)=>B(36+(i%5)*180,160+Math.floor(i/5)*136,168,124,'',()=>buyGear(shopTab,i),{item:i}));
+    TABS.forEach(([k,l],i)=>B(178+i*155,84,140,34,l,()=>{shopTab=k;setState('shop');menuSel=i;sfx('select');},{tab:k}));
+    if(shopTab==='sword')SLOTS.forEach((l,i)=>B(165+i*215,124,200,28,l,()=>{swordSlot=i;setState('shop');menuSel=4+i;sfx('select');},{slot:i}));
+    if(shopTab==='forge')SLOTS.forEach((l,i)=>B(90+i*270,140,240,280,'',()=>forgeSword(i),{forge:i}));
+    else GEAR[shopTab].forEach((it,i)=>B(36+(i%5)*180,160+Math.floor(i/5)*136,168,124,'',()=>buyGear(shopTab,i),{item:i}));
     B(370,436,220,44,G.stage+1<STAGES.length?'다음 스테이지 ▶':'계속 ▶',()=>{if(G.stage+1<STAGES.length)startStage(G.stage+1);else setState('title');});
     menuSel=buttons.length-1;
   }else if(s==='victory'){
     B(260,400,200,48,'순위 보기',()=>{rankBack='victory';setState('rank');});
     B(500,400,200,48,'타이틀로',()=>{setState('title');});
   }
+}
+let forgeFlash={slot:-1,t:0};
+function forgeSword(slot){
+  const i=G.eq.sword[slot],L=forgeLv(i);if(L>=10){sfx('nope');return;}
+  const c=forgeCost(i,L);if(G.coins<c){sfx('nope');return;}
+  G.coins-=c;G.forge[i]=L+1;forgeFlash={slot,t:gtime};sfx(gradeOf(L+1)>gradeOf(L)?'clear':'buy');save();
 }
 function equipGear(cat,i){if(cat==='sword')G.eq.sword[swordSlot]=i;else G.eq[cat]=i;}
 function buyGear(cat,i){
@@ -1540,7 +1556,10 @@ function drawBlade(pvx,pvy,face,a,len,ext,SW=curSword(),hand='#c3cce0'){
   const ca=Math.cos(a)*face,sa=Math.sin(a),bx=pvx+Math.round(ca*ext),by=pvy+Math.round(sa*ext),qx=-sa,qy=ca;len+=bladeExtra(SW);
   lp(bx,by,hand);lp(bx+Math.round(ca),by+Math.round(sa),'#6b4a2b');
   const gx=bx+Math.round(ca*2),gy=by+Math.round(sa*2);lp(gx,gy,SW.guard);lp(gx+Math.round(qx),gy+Math.round(qy),SW.guard);lp(gx-Math.round(qx),gy-Math.round(qy),SW.guard);
-  for(let i=3;i<=len;i++){const px=bx+Math.round(ca*i),py=by+Math.round(sa*i);lp(px,py,SW.blade);if(i<len)lp(px+Math.round(qx*0.6),py+Math.round(qy*0.6),SW.edge);}
+  for(let i=3;i<=len;i++){const px=bx+Math.round(ca*i),py=by+Math.round(sa*i);
+    if(SW.aura&&(i+Math.floor(gtime*12))%3===0)lp(px-Math.round(qx*1.6),py-Math.round(qy*1.6),SW.aura);
+    lp(px,py,SW.blade);if(i<len)lp(px+Math.round(qx*0.6),py+Math.round(qy*0.6),SW.edge);}
+  if(SW.grade>=1&&Math.floor(gtime*6)%4===0)lp(bx+Math.round(ca*(len+1)),by+Math.round(sa*(len+1)),'#ffffff');
 }
 function knightGeom(x,y,face,o){
   const atk=o.atkT>0,pose=atk?swordPose(o):null,lean=pose?pose.lean:0;
@@ -1582,12 +1601,11 @@ function arcSmear(cx,cy,face,a0,a1,r0,r1,cols){
     for(let r=rs;r<=r1;r++){const px=cx+Math.round(ca*r),py=cy+Math.round(sa*r),key=px+','+py;if(seen.has(key))continue;seen.add(key);
       lp(px,py,r>=r1-1?'#ffffff':col);}}
 }
-const SMEAR=['#ffffff','#fff3b0','#ffcf4a'];
 function drawPlayerFX(){
   if(P.dead||!(P.atkT>0))return;
   const g=knightGeom(P.x+P.w/2-cam.x,P.y+P.h-cam.y,P.face,P),p=g.pose;if(!p||p.ph===0)return;
-  if(P.atkDown){const f=p.ph===2?1-(p.k-0.8)/0.2:1;arcSmear(g.pvx-P.face*1,g.pvy+1,P.face,0.25,Math.PI-0.25,Math.round(9*f+2),12,SMEAR);return;}
-  if(P.combo===4){if(p.ph!==1)return;const ex=bladeExtra(reachSword());arcSmear(g.pvx,g.pvy,P.face,p.a-2.6,p.a,8+ex,13+ex,SMEAR);arcSmear(g.pvx,g.pvy,P.face,p.a+Math.PI-2.0,p.a+Math.PI,8,11,SMEAR);return;}
+  if(P.atkDown){const f=p.ph===2?1-(p.k-0.8)/0.2:1;arcSmear(g.pvx-P.face*1,g.pvy+1,P.face,0.25,Math.PI-0.25,Math.round(9*f+2),12,smearCols());return;}
+  if(P.combo===4){if(p.ph!==1)return;const ex=bladeExtra(reachSword());arcSmear(g.pvx,g.pvy,P.face,p.a-2.6,p.a,8+ex,13+ex,smearCols());arcSmear(g.pvx,g.pvy,P.face,p.a+Math.PI-2.0,p.a+Math.PI,8,11,smearCols());return;}
   if(P.combo===3){
     const tipx=g.pvx+Math.round(P.face*(p.ext+p.len+bladeExtra(reachSword()))),y0=g.pvy;
     if(p.ph>=1){const cx=tipx-P.face*6,L=p.ph===1?7:Math.round(7*(1-(p.k-0.55)/0.45));for(let i=-L;i<=L;i++){lp(cx+i,y0+i,'#ffffff');lp(cx+i,y0-i,'#ffffff');if(Math.abs(i)<L-1){lp(cx+i+1,y0+i,'#fff3b0');lp(cx+i+1,y0-i,'#fff3b0');}}}
@@ -1598,7 +1616,7 @@ function drawPlayerFX(){
   }
   const end=p.a,start=p.ph===1?p.a0:lerp(p.a0,p.a1,clamp((p.k-0.55)/0.35,0,1));
   if(Math.abs(end-start)<0.08)return;
-  const ex=bladeExtra(reachSword());arcSmear(g.pvx,g.pvy,P.face,start,end,8+ex,12+ex,SMEAR);
+  const ex=bladeExtra(reachSword());arcSmear(g.pvx,g.pvy,P.face,start,end,8+ex,12+ex,smearCols());
 }
 function drawSparks(){
   for(const k of sparks){const x=Math.round((k.x-cam.x)/PX),y=Math.round((k.y-cam.y)/PX),r=k.big?1.5:1;
@@ -1691,7 +1709,7 @@ function drawBoss(b,x,y){
 function drawStar(x,y,r,rot,col){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.fillStyle=col;ctx.beginPath();for(let i=0;i<10;i++){const rr2=i%2?r*0.45:r,a=i*Math.PI/5-Math.PI/2;ctx.lineTo(Math.cos(a)*rr2,Math.sin(a)*rr2);}ctx.closePath();ctx.fill();ctx.restore();}
 function drawProj(pr){
   const x=pr.x-cam.x,y=pr.y-cam.y,blink=Math.floor(gtime*16)%2===0;
-  if(pr.kind==='slash'){const f=Math.sign(pr.vx)||1;ctx.save();ctx.translate(x+pr.w/2,y+pr.h/2);ctx.scale(f,1);ctx.fillStyle='#dff4ff';ctx.beginPath();ctx.arc(-4,0,17,-1.25,1.25);ctx.arc(-11,0,13,1.1,-1.1,true);ctx.fill();ctx.fillStyle='#ffffff';ctx.fillRect(6,-3,6,6);ctx.restore();return;}
+  if(pr.kind==='slash'){const f=Math.sign(pr.vx)||1;ctx.save();ctx.translate(x+pr.w/2,y+pr.h/2);ctx.scale(f,1);ctx.fillStyle=pr.col||'#dff4ff';ctx.beginPath();ctx.arc(-4,0,17,-1.25,1.25);ctx.arc(-11,0,13,1.1,-1.1,true);ctx.fill();ctx.fillStyle='#ffffff';ctx.fillRect(6,-3,6,6);ctx.restore();return;}
   if(pr.kind==='orb'||pr.kind==='feather'||pr.kind==='skull'){const cx=x+pr.w/2,cy=y+pr.h/2;
     if(pr.kind==='feather'){const a=Math.atan2(pr.vy,pr.vx);ctx.save();ctx.translate(cx,cy);ctx.rotate(a);ctx.fillStyle=pr.col;ctx.beginPath();ctx.ellipse(0,0,10,4,0,0,7);ctx.fill();ctx.fillStyle='#a08a60';ctx.fillRect(-10,-1,20,2);ctx.restore();return;}
     ctx.fillStyle=pr.col;ctx.beginPath();ctx.arc(cx,cy,pr.r,0,7);ctx.fill();ctx.fillStyle=pr.col2;ctx.beginPath();ctx.arc(cx,cy,pr.r*0.55,0,7);ctx.fill();
@@ -1769,7 +1787,7 @@ function drawBanner(){
   if(bannerT>0){ctx.globalAlpha=clamp(bannerT,0,1);ctx.fillStyle='rgba(10,8,20,0.6)';ctx.fillRect(0,H/2-70,W,80);ctx.fillStyle='#ffd84a';ctx.fillRect(0,H/2-70,W,4);ctx.fillRect(0,H/2+6,W,4);txt(stage.name,W/2,H/2-30,38,'#ffe9a8','center');ctx.globalAlpha=1;}
 }
 function drawButtons(){
-  buttons.forEach((b,i)=>{if(b.up||b.tab||b.item!=null||b.slot!=null)return;const sel=i===menuSel;
+  buttons.forEach((b,i)=>{if(b.up||b.tab||b.item!=null||b.slot!=null||b.forge!=null)return;const sel=i===menuSel;
     ctx.fillStyle=sel?'#ffd84a':'rgba(30,24,50,0.88)';rr(b.x,b.y,b.w,b.h,12);ctx.fill();
     ctx.lineWidth=3;ctx.strokeStyle=sel?'#fff':'rgba(255,255,255,0.35)';ctx.stroke();
     txt(b.label,b.x+b.w/2,b.y+b.h/2+1,18,sel?'#2a1a08':'#fff','center',false);});
@@ -1861,7 +1879,17 @@ function drawShop(){
   drawCoin(W/2-110,62,gtime,1.2);txt(String(G.coins),W/2-90,63,20,'#ffe066');txt('Lv '+G.lv+' · 공격력 '+swordDmg()+' · 체력 '+(curArmor().hp+lvHp()),W/2+40,63,15,'#bfe0ff');
   buttons.forEach((b,i)=>{const sel=i===menuSel;
     if(b.tab){const on=b.tab===shopTab;ctx.fillStyle=on?'#ffd84a':'rgba(36,28,60,0.95)';rr(b.x,b.y,b.w,b.h,10);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=sel?'#ffffff':'rgba(255,255,255,0.3)';ctx.stroke();
-      txt(b.label+' '+G.owned[b.tab].length+'/10',b.x+b.w/2,b.y+b.h/2+1,17,on?'#2a1a08':'#ffffff','center',false);return;}
+      txt(b.tab==='forge'?b.label:b.label+' '+G.owned[b.tab].length+'/10',b.x+b.w/2,b.y+b.h/2+1,17,on?'#2a1a08':'#ffffff','center',false);return;}
+    if(b.forge!=null){const SW=swordOf(G.eq.sword[b.forge]),L=SW.lv,gr=GRADES[SW.grade],mx=L>=10,c=mx?0:forgeCost(SW.idx,L),can=!mx&&G.coins>=c,fl=forgeFlash.slot===b.forge&&gtime-forgeFlash.t<0.6;
+      ctx.fillStyle=fl?'rgba(120,100,40,0.98)':sel?'rgba(70,56,110,0.98)':'rgba(36,28,60,0.95)';rr(b.x,b.y,b.w,b.h,14);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=sel?'#ffd84a':gr.c;ctx.stroke();
+      const cx=b.x+b.w/2;txt(SLOTS[b.forge],cx,b.y+22,14,'#9a90c0','center');
+      if(SW.grade>=2){ctx.fillStyle=gr.c;ctx.globalAlpha=0.25+0.15*Math.sin(gtime*4);ctx.beginPath();ctx.arc(cx,b.y+70,40,0,7);ctx.fill();ctx.globalAlpha=1;}
+      ctx.save();ctx.translate(cx-34,b.y+86);ctx.rotate(-0.55);ctx.fillStyle='#6b4a2b';ctx.fillRect(-10,-4,12,8);ctx.fillStyle=SW.guard;ctx.fillRect(2,-11,6,22);ctx.fillStyle=SW.blade;ctx.fillRect(8,-5,64,10);ctx.beginPath();ctx.moveTo(72,-5);ctx.lineTo(82,0);ctx.lineTo(72,5);ctx.fill();ctx.fillStyle=SW.edge;ctx.fillRect(8,1,64,4);ctx.restore();
+      txt(SW.name+(L?' +'+L:''),cx,b.y+128,19,'#ffffff','center');txt(gr.n,cx,b.y+152,15,gr.c,'center');
+      txt('공격력 '+SW.dmg+' · 사거리 +'+SW.reach,cx,b.y+178,13,'#cfc7e8','center');
+      for(let j=0;j<10;j++){ctx.fillStyle=j<L?GRADES[gradeOf(j+1)].c:'rgba(255,255,255,0.15)';ctx.fillRect(cx-100+j*20,b.y+196,16,8);}
+      txt(mx?'최대 강화':'다음: 공격력 +1 · 사거리 +1'+(gradeOf(L+1)>SW.grade?' · '+GRADES[gradeOf(L+1)].n+' 각성!':''),cx,b.y+222,12,mx?'#9ff0a0':'#bfe0ff','center');
+      txt(mx?'신검':'강화 '+c+' 코인',cx,b.y+254,17,mx?'#ffffff':can?'#ffe066':'#ff8a8a','center');return;}
     if(b.slot!=null){const on=b.slot===swordSlot;ctx.fillStyle=on?'#9fe6ff':'rgba(36,28,60,0.95)';rr(b.x,b.y,b.w,b.h,8);ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=sel?'#ffffff':'rgba(255,255,255,0.3)';ctx.stroke();
       txt(b.label+' · '+SWORDS[G.eq.sword[b.slot]].name,b.x+b.w/2,b.y+b.h/2+1,13,on?'#10202a':'#ffffff','center',false);return;}
     if(b.item==null)return;
@@ -1870,10 +1898,10 @@ function drawShop(){
     ctx.fillStyle=eq?'rgba(40,80,60,0.98)':sel?'rgba(70,56,110,0.98)':'rgba(36,28,60,0.95)';rr(b.x,b.y,b.w,b.h,12);ctx.fill();
     ctx.lineWidth=3;ctx.strokeStyle=sel?'#ffd84a':eq?'#9ff0a0':'rgba(255,255,255,0.22)';ctx.stroke();
     gearIcon(cat,b.item,b.x+b.w/2,b.y+36);
-    txt(it.name,b.x+b.w/2,b.y+70,15,'#ffffff','center');txt(gearStat(cat,b.item),b.x+b.w/2,b.y+89,11,'#cfc7e8','center');
+    txt(it.name+(cat==='sword'&&forgeLv(b.item)?' +'+forgeLv(b.item):''),b.x+b.w/2,b.y+70,15,'#ffffff','center');txt(gearStat(cat,b.item),b.x+b.w/2,b.y+89,11,'#cfc7e8','center');
     txt(eq?(cat==='sword'?inSlots.join('·'):'장착 중'):own?(cat==='sword'?SLOTS[swordSlot]+'에 끼우기':'장착하기'):it.cost+' 코인',b.x+b.w/2,b.y+110,14,eq?'#9ff0a0':own?'#bfe0ff':can?'#ffe066':'#ff8a8a','center');});
   drawButtons();
-  txt(isTouch?'칼은 칸(오른손·왼손·입)을 고른 뒤 카드를 눌러 끼워요':'←/→ 선택 · J/Enter 구매·장착',W/2,524,13,'rgba(255,255,255,0.7)','center');
+  txt(shopTab==='forge'?'카드를 누르면 지금 낀 칼을 강화해요 · +3 명검 · +6 대명검 · +9 전설 · +10 신검':isTouch?'칼은 칸(오른손·왼손·입)을 고른 뒤 카드를 눌러 끼워요':'←/→ 선택 · J/Enter 구매·장착',W/2,524,13,'rgba(255,255,255,0.7)','center');
 }
 function drawVictory(){
   dim(0.75);
