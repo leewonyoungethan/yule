@@ -40,7 +40,15 @@ const BG=layer(),FG=layer(),FX=layer(),UI=layer();
 const OUTLINE=0xff1c1018,PXMASK=new Uint8Array(LW*LH);
 let textQ=[];
 const W=960,H=540,T=32,GRAV=1800,JUMP=580,STEP=1/60;
-function resize(){const s=Math.min(innerWidth/W,innerHeight/H);cv.style.width=Math.floor(W*s)+'px';cv.style.height=Math.floor(H*s)+'px';}
+// 선명한 화면: 캔버스 실제 픽셀을 보이는 크기 × 기기 배율로 맞추고, 그림은 그 위에 확대해서 그려요.
+let RS=1;
+function resize(){
+  const s=Math.min(innerWidth/W,innerHeight/H),cw=Math.max(1,Math.floor(W*s)),ch=Math.max(1,Math.floor(H*s));
+  cv.style.width=cw+'px';cv.style.height=ch+'px';
+  const dpr=Math.min(3,window.devicePixelRatio||1),bw=Math.min(3840,Math.round(cw*dpr));
+  RS=bw/W;cv.width=bw;cv.height=Math.round(H*RS);
+  mainCtx.imageSmoothingEnabled=false;
+}
 addEventListener('resize',resize);resize();
 
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -1804,8 +1812,9 @@ function pixelate(L){
     if((x>0&&m[i-1])||(x<LW-1&&m[i+1])||(y>0&&m[i-LW])||(y<LH-1&&m[i+LW]))d[i]=OUTLINE;}}
   L.x.putImageData(img,0,0);
 }
-function blit(L){mainCtx.setTransform(1,0,0,1,0,0);mainCtx.globalAlpha=1;mainCtx.imageSmoothingEnabled=false;mainCtx.drawImage(L.c,0,0,W,H);}
-function flushText(){ctx=mainCtx;mainCtx.setTransform(1,0,0,1,0,0);for(const q of textQ){mainCtx.globalAlpha=q[7];txt(q[0],q[1],q[2],q[3],q[4],q[5],q[6]);}mainCtx.globalAlpha=1;textQ=[];}
+function beginMain(){ctx=mainCtx;ctx.setTransform(RS,0,0,RS,0,0);ctx.globalAlpha=1;ctx.filter='none';ctx.imageSmoothingEnabled=false;ctx._z=1;}
+function blit(L){mainCtx.setTransform(RS,0,0,RS,0,0);mainCtx.globalAlpha=1;mainCtx.imageSmoothingEnabled=false;mainCtx.drawImage(L.c,0,0,W,H);}
+function flushText(){ctx=mainCtx;mainCtx.setTransform(RS,0,0,RS,0,0);for(const q of textQ){mainCtx.globalAlpha=q[7];txt(q[0],q[1],q[2],q[3],q[4],q[5],q[6]);}mainCtx.globalAlpha=1;textQ=[];}
 function drawWorld(){
   const sx=shake>0?Math.round(rand(-shake,shake)/PX)*PX:0,sy=shake>0?Math.round(rand(-shake,shake)/PX)*PX:0;
   const camX=cam.x,camY=cam.y;cam.x=Math.round(cam.x/PX)*PX;cam.y=Math.round(cam.y/PX)*PX;
@@ -1839,14 +1848,14 @@ function render(){
   textQ=[];
   if(state==='title'||state==='rank'){drawTitle(state==='rank');return;}
   drawWorld();
-  beginLayer(UI,true,false);
+  beginMain();
   if(state==='play')drawBanner();
   if(state==='pause'){dim(0.55);txt('일시정지',W/2,150,44,'#fff','center');drawButtons();}
   else if(state==='dead'){dim(0.6);txt('쓰러졌다…',W/2,190,48,'#ff8a8a','center');txt('별빛은 아직 꺼지지 않았다',W/2,245,18,'#ddd','center');drawButtons();}
   else if(state==='clear'){dim(Math.min(0.5,stateT));txt('스테이지 클리어!',W/2,H/2-30,52,'#ffe066','center');txt('+'+(G.coins-G.stageCoins0)+' 코인',W/2,H/2+30,22,'#fff','center');}
   else if(state==='shop')drawShop();
   else if(state==='victory')drawVictory();
-  blit(UI);flushText();
+  flushText();
 }
 function dim(a){ctx.fillStyle='rgba(8,6,16,'+a+')';ctx.fillRect(0,0,W,H);}
 function drawTitle(rank){
@@ -1856,13 +1865,13 @@ function drawTitle(rank){
   drawKnight(VW/2,296,1,{anim:gtime,onG:true,vx:0,atkT:0});
   for(let i=0;i<6;i++){const a=gtime*1.5+i*1.05;drawStar(VW/2+Math.cos(a)*44,276+Math.sin(a)*14,5,a,'#ffe066');}
   pixelate(FG);blit(BG);blit(FG);
-  beginLayer(UI,true,false);
-  if(rank){drawRank();blit(UI);flushText();return;}
+  beginMain();
+  if(rank){drawRank();flushText();return;}
   txt('삼도류 검사',W/2,130,80,'#ffe066','center');
   txt('THREE-SWORD STYLE',W/2,195,22,'#fff','center');
   drawButtons();
   txt(isTouch?'버튼을 눌러 시작':'←/→ 선택 · Enter 또는 J 결정 · M 소리 끄기',W/2,515,14,'rgba(255,255,255,0.85)','center');
-  blit(UI);flushText();
+  flushText();
 }
 function gearIcon(cat,i,cx,cy){
   if(cat==='sword'){const S=SWORDS[i],L=34+S.reach;ctx.save();ctx.translate(cx-L/2-4,cy+L/4);ctx.rotate(-0.55);
