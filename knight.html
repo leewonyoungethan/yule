@@ -597,16 +597,16 @@ for(let w=1;w<=10;w++)for(let s=1;s<=4;s++){
 }
 // ----- 상점 장비: 검 10 · 별 10 · 갑옷 10 -----
 const SWORDS=[
-  {name:'일본도',dmg:2,reach:2,cost:0,blade:'#e8eef8',edge:'#a8b4c8',guard:'#3a3a3a'},
-  {name:'홍월도',dmg:3,reach:4,cost:70,blade:'#ffd6d6',edge:'#c8283a',guard:'#5a1a1a'},
-  {name:'흑야도',dmg:3,reach:8,cost:110,blade:'#9a9ac0',edge:'#44445e',guard:'#c8a040'},
-  {name:'은빛 검',dmg:3,reach:10,cost:150,blade:'#ffffff',edge:'#c8d8f0',guard:'#9ab0d0'},
-  {name:'루비 검',dmg:4,reach:6,cost:220,blade:'#ffa0a0',edge:'#d83a4a',guard:'#ffd23f'},
-  {name:'사파이어 검',dmg:4,reach:14,cost:300,blade:'#a8d8ff',edge:'#3a7ad8',guard:'#e8e8f0'},
-  {name:'에메랄드 검',dmg:5,reach:10,cost:400,blade:'#a8ffc0',edge:'#2aa85a',guard:'#ffd23f'},
-  {name:'별빛 검',dmg:6,reach:14,cost:520,blade:'#fff6b0',edge:'#ffc23a',guard:'#9a5cff'},
-  {name:'용의 검',dmg:7,reach:18,cost:680,blade:'#ffbe80',edge:'#d8401a',guard:'#4a1a1a'},
-  {name:'성검 아스트라',dmg:9,reach:22,cost:900,blade:'#ffffff',edge:'#ffe9a0',guard:'#5ad8ff'},
+  {name:'철 일본도',dmg:2,reach:2,cost:0,blade:'#e8eef8',edge:'#a8b4c8',guard:'#3a3a3a'},
+  {name:'해적 커틀러스',dmg:3,reach:4,cost:70,blade:'#dfe6ee',edge:'#8a96a8',guard:'#c8a040'},
+  {name:'산호 검',dmg:3,reach:8,cost:110,blade:'#ffc8c0',edge:'#e8606a',guard:'#f4f0e0'},
+  {name:'해왕의 송곳니',dmg:3,reach:10,cost:150,blade:'#fff8e8',edge:'#cfc4a8',guard:'#5a7a8a'},
+  {name:'폭풍 일본도',dmg:4,reach:6,cost:220,blade:'#c8d8ff',edge:'#4a6ad8',guard:'#2a2a3a'},
+  {name:'심해 흑도',dmg:4,reach:14,cost:300,blade:'#7a8ab8',edge:'#1a2a5a',guard:'#4ad8c8'},
+  {name:'황금 보물도',dmg:5,reach:10,cost:400,blade:'#fff2a0',edge:'#d8a018',guard:'#c8283a'},
+  {name:'저주받은 붉은 칼',dmg:6,reach:14,cost:520,blade:'#ffb0b0',edge:'#a8102a',guard:'#1a0a0a'},
+  {name:'용골 대검',dmg:7,reach:18,cost:680,blade:'#ffbe80',edge:'#d8401a',guard:'#4a1a1a'},
+  {name:'바다를 벤 명도',dmg:9,reach:22,cost:900,blade:'#ffffff',edge:'#9ae0ff',guard:'#1a3a6a'},
 ];
 const STARS=[
   {name:'별 조각',desc:'한 개를 던져요',dmg:2,cost:0,col:'#ffe066'},
@@ -1667,14 +1667,9 @@ function drawKnight(x,y,face,o,alpha=1,sil=null){
   if(g.pose){const p=g.pose,a2=o.combo===4?p.a+Math.PI:o.combo===3?p.a+0.45:o.atkDown?p.a+0.5:o.combo===2?p.a-0.8:p.a+0.8;drawBlade(g.pvx-face*3,g.pvy+1,face,a2,p.len-1,p.ext,SW2,AR.d);}
   else if(!o.sliding){const q=(c,r,col)=>pxl(sx,sy,12,face,c,r,col,1,1);q(3,11,AR.d);q(3,12,SW2.guard);q(2,12,SW2.guard);for(let i=0;i<4;i++)q(2-i,13+i,SW2.blade);}
   if(g.pose&&back)drawBlade(g.pvx,g.pvy-1,face,g.pose.a,g.pose.len,g.pose.ext,SW,AR.s);
-  if(!(o.atkT>0&&o.combo===3)){const ex=Math.min(4,bladeExtra(SW3)),bob=Math.round(Math.sin(gtime*3)),L=8+ex;
-    for(let i=0;i<L;i++){const c=-3+Math.round(i*0.3),r=13-i+bob;P_(c,r,i<2?'#6b4a2b':i===2?SW3.guard:SW3.blade,1,1);if(i>2&&i<L-1)P_(c-1,r,SW3.edge,1,1);if(i===2)P_(c-1,r,SW3.guard,1,1);}
-    if(Math.floor(gtime*5)%3===0)P_(-3+Math.round(L*0.3),13-L+bob,'#c07aff',1,1);}
   ctx.drawImage(face>0?S.c:S.f,sx,sy,S.w*PX,S.h*PX);
-  // 세 번째 칼 (등 뒤에 떠 있다가 3타에 앞으로)
-  {const ex=Math.min(4,bladeExtra(SW3));
-   if(o.atkT>0&&o.combo===3){const L=8+ex;P_(10,5,SW3.guard,1,3);P_(11,6,SW3.blade,L,1);P_(11,7,SW3.edge,L-1,1);}
-}
+  // 입에 문 칼 (투구 입가리개에 물고 있음)
+  {const ex=Math.min(4,bladeExtra(SW3)),L=6+ex+(o.combo===3&&o.atkT>0?2:0);P_(8,7,'#6b4a2b',3,1);P_(11,6,SW3.guard,1,3);P_(12,7,SW3.blade,L,1);P_(12,8,SW3.edge,L-1,1);}
   if(g.pose){
     if(o.combo===3)drawBlade(g.pvx,g.pvy-2,face,g.pose.a-0.45,g.pose.len,g.pose.ext,SW,AR.s);
     if(!back)drawBlade(g.pvx,g.pvy,face,g.pose.a,g.pose.len,g.pose.ext,SW,AR.s);
